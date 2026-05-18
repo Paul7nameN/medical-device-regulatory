@@ -10,14 +10,14 @@ from app.regulatory.normalizer import LogNormalizer
 
 class RegulatoryEngine:
     RULE_ORDER = [
-        "thermal",
-        "sensor",
-        "alarm",
-        "data",
-        "power",
-        "cooling",
-        "insulation",
-        "operational"
+        "TEMP",
+        "SENS",
+        "ALARM",
+        "DATA",
+        "POWER",
+        "COOL",
+        "INS",
+        "OPS"
     ]
 
     def __init__(self):

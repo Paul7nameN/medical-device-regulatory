@@ -11,7 +11,7 @@ from app.models.findings import Severity, Finding
 class RegCool1(BaseRule):
     rule_id = "REG-COOL-1"
     description = "Cooling system must include at least n ≥ 2 airflow paths"
-    category = "cooling"
+    category = "COOL"
     default_severity = Severity.INFO
     data_source = ValidationSource.INSPECTION
     confidence = 0.0
@@ -40,7 +40,7 @@ class RegCool1(BaseRule):
 class RegCool2(BaseRule):
     rule_id = "REG-COOL-2"
     description = "Single-point failure in cooling airflow shall not result in temperature excursion beyond allowed range for more than 3 minutes"
-    category = "cooling"
+    category = "COOL"
     default_severity = Severity.HIGH
     data_source = ValidationSource.LOGS
     confidence = 0.8

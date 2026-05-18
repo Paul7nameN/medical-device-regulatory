@@ -513,15 +513,10 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
              </div>
            </div>
 
-          <div>
-            <h2 className="text-lg font-semibold text-foreground font-heading mb-4">
-              Compliance by Category
-              {selectedCategory && (
-                <span className="text-sm font-normal text-primary ml-2">
-                  (Filtered: REG-{selectedCategory})
-                </span>
-              )}
-            </h2>
+           <div>
+             <h2 className="text-lg font-semibold text-foreground font-heading mb-4">
+               Compliance by Category
+             </h2>
             {!categoryData ? (
               <Card className="border-dashed border-border/80 bg-muted/20">
                 <CardContent className="p-6 text-center">
@@ -538,13 +533,6 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
                        key={category}
                        category={category}
                        counts={counts}
-                       onClick={() => handleCategoryClick(category)}
-                       className={cn(
-                         'cursor-pointer touch-target',
-                         selectedCategory === category
-                           ? 'ring-2 ring-primary'
-                             : ''
-                       )}
                      />
                    )
                  )}

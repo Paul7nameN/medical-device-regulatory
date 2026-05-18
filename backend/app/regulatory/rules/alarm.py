@@ -11,7 +11,7 @@ from app.models.findings import Severity, Finding
 class RegAlarm1(BaseRule):
     rule_id = "REG-ALARM-1"
     description = "Alarm shall activate if temperature remains outside range for t ≥ 2 minutes"
-    category = "alarm"
+    category = "ALARM"
     default_severity = Severity.HIGH
     data_source = ValidationSource.LOGS
     confidence = 1.0
@@ -123,7 +123,7 @@ class RegAlarm1(BaseRule):
 class RegAlarm2(BaseRule):
     rule_id = "REG-ALARM-2"
     description = "System notifications must be delivered within t_notify ≤ 10 seconds"
-    category = "alarm"
+    category = "ALARM"
     default_severity = Severity.MEDIUM
     data_source = ValidationSource.INSPECTION
     confidence = 0.0
@@ -151,7 +151,7 @@ class RegAlarm2(BaseRule):
 class RegAlarm3(BaseRule):
     rule_id = "REG-ALARM-3"
     description = "The system must support: audible alarm, visual dashboard alert, remote mobile notification. Failure to support any channel is non-compliant."
-    category = "alarm"
+    category = "ALARM"
     default_severity = Severity.MEDIUM
     data_source = ValidationSource.INSPECTION
     confidence = 0.0

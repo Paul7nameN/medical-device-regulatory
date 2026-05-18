@@ -10,7 +10,7 @@ from app.models.findings import Severity, Finding
 class RegSens1(BaseRule):
     rule_id = "REG-SENS-1"
     description = "The system shall include at least one primary + one redundant secondary sensor. Failure of redundancy constitutes a critical violation."
-    category = "sensor"
+    category = "SENS"
     default_severity = Severity.CRITICAL
     data_source = ValidationSource.LOGS
     confidence = 1.0
@@ -71,7 +71,7 @@ class RegSens1(BaseRule):
 class RegSens2(BaseRule):
     rule_id = "REG-SENS-2"
     description = "Sensors must not be placed within d < 15 cm from airflow outlet to prevent airflow bias interference."
-    category = "sensor"
+    category = "SENS"
     default_severity = Severity.INFO
     data_source = ValidationSource.INSPECTION
     confidence = 0.0
@@ -89,7 +89,7 @@ class RegSens2(BaseRule):
 class RegSens3(BaseRule):
     rule_id = "REG-SENS-3"
     description = "Sensor readings must satisfy: |T1 - T2| ≤ 0.5°C"
-    category = "sensor"
+    category = "SENS"
     default_severity = Severity.HIGH
     data_source = ValidationSource.COMBINED
     confidence = 0.7

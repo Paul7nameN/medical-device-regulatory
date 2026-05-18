@@ -10,7 +10,7 @@ from app.models.findings import Severity, Finding
 class RegData1(BaseRule):
     rule_id = "REG-DATA-1"
     description = "The system must maintain an immutable log of: temperature readings, alarms, configuration changes, sensor status events"
-    category = "data"
+    category = "DATA"
     default_severity = Severity.INFO
     data_source = ValidationSource.LOGS
     confidence = 1.0
@@ -52,7 +52,7 @@ class RegData1(BaseRule):
 class RegData2(BaseRule):
     rule_id = "REG-DATA-2"
     description = "Data gaps in telemetry must not exceed: Δt_gap ≤ 90 seconds"
-    category = "data"
+    category = "DATA"
     default_severity = Severity.MEDIUM
     data_source = ValidationSource.LOGS
     confidence = 1.0
@@ -112,7 +112,7 @@ class RegData2(BaseRule):
 class RegData3(BaseRule):
     rule_id = "REG-DATA-3"
     description = "Local data must be retained for at least t_retention ≥ 72 hours in case of cloud sync failure."
-    category = "data"
+    category = "DATA"
     default_severity = Severity.INFO
     data_source = ValidationSource.COMBINED
     confidence = 0.5

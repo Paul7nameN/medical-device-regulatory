@@ -10,7 +10,7 @@ from app.models.findings import Severity, Finding
 class RegTemp1(BaseRule):
     rule_id = "REG-TEMP-1"
     description = "Maintain internal temperature: 2°C ≤ T ≤ 8°C at all times during active operation"
-    category = "thermal"
+    category = "TEMP"
     default_severity = Severity.HIGH
     data_source = ValidationSource.LOGS
     confidence = 1.0
@@ -59,7 +59,7 @@ class RegTemp1(BaseRule):
 class RegTemp2(BaseRule):
     rule_id = "REG-TEMP-2"
     description = "Temperature excursion limits: max 5min per event, 10min cumulative per 24h. Any exceedance is critical."
-    category = "thermal"
+    category = "TEMP"
     default_severity = Severity.CRITICAL
     data_source = ValidationSource.LOGS
     confidence = 1.0
@@ -156,7 +156,7 @@ class RegTemp2(BaseRule):
 class RegTemp3(BaseRule):
     rule_id = "REG-TEMP-3"
     description = "After any disturbance (e.g., door opening), system must return to stable range within ≤ 3 minutes"
-    category = "thermal"
+    category = "TEMP"
     default_severity = Severity.HIGH
     data_source = ValidationSource.LOGS
     confidence = 1.0
@@ -243,7 +243,7 @@ class RegTemp3(BaseRule):
 class RegTemp4(BaseRule):
     rule_id = "REG-TEMP-4"
     description = "Temperature must be recorded at intervals of Δt ≤ 30 seconds"
-    category = "thermal"
+    category = "TEMP"
     default_severity = Severity.MEDIUM
     data_source = ValidationSource.LOGS
     confidence = 1.0

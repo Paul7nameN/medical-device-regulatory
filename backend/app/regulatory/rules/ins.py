@@ -10,7 +10,7 @@ from app.models.findings import Severity, Finding
 class RegIns1(BaseRule):
     rule_id = "REG-INS-1"
     description = "All chamber walls must have insulation thickness: t_insulation ≥ 4 cm"
-    category = "insulation"
+    category = "INS"
     default_severity = Severity.INFO
     data_source = ValidationSource.INSPECTION
     confidence = 0.0
@@ -40,7 +40,7 @@ class RegIns1(BaseRule):
 class RegIns2(BaseRule):
     rule_id = "REG-INS-2"
     description = "Battery compartment must be physically and thermally isolated from storage chamber"
-    category = "insulation"
+    category = "INS"
     default_severity = Severity.INFO
     data_source = ValidationSource.INSPECTION
     confidence = 0.0

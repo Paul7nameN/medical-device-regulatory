@@ -11,7 +11,7 @@ from app.models.findings import Severity, Finding
 class RegPower1(BaseRule):
     rule_id = "REG-POWER-1"
     description = "Battery backup must support continuous operation for t_battery ≥ 4 hours"
-    category = "power"
+    category = "POWER"
     default_severity = Severity.MEDIUM
     data_source = ValidationSource.COMBINED
     confidence = 0.6
@@ -83,7 +83,7 @@ class RegPower1(BaseRule):
 class RegPower2(BaseRule):
     rule_id = "REG-POWER-2"
     description = "Even in battery mode, temperature must remain compliant with REG-TEMP-1 (2°C ≤ T ≤ 8°C)"
-    category = "power"
+    category = "POWER"
     default_severity = Severity.HIGH
     data_source = ValidationSource.LOGS
     confidence = 0.9

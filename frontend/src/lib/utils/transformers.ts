@@ -10,6 +10,24 @@ import type { TemperatureDataPoint, TemperatureDataSource } from '@/components/T
 
 export type { TemperatureDataPoint, TemperatureDataSource }
 
+const OLD_TO_NEW_CATEGORY: Record<string, string> = {
+  "thermal": "TEMP",
+  "sensor": "SENS",
+  "alarm": "ALARM",
+  "cooling": "COOL",
+  "insulation": "INS",
+  "operational": "OPS",
+  "data": "DATA",
+  "power": "POWER",
+}
+
+export function convertCategory(category: string): string {
+  if (OLD_TO_NEW_CATEGORY[category]) {
+    return OLD_TO_NEW_CATEGORY[category]
+  }
+  return category
+}
+
 export interface SeverityCounts {
   critical: number
   high: number
@@ -66,17 +84,18 @@ export function groupViolationsByCategory(
     OPS: createEmptySeverityCounts(),
   }
 
-  for (const finding of findings) {
-    if (finding.passed) continue
+   for (const finding of findings) {
+     if (finding.passed) continue
 
-    const category = finding.category as RegCategory
-    if (!result[category]) continue
+     const rawCategory = finding.category
+     const category = convertCategory(rawCategory) as RegCategory
+     if (!result[category]) continue
 
-    const severity = finding.severity as keyof SeverityCounts
-    if (severity in result[category]) {
-      result[category][severity]++
-    }
-  }
+     const severity = finding.severity as keyof SeverityCounts
+     if (severity in result[category]) {
+       result[category][severity]++
+     }
+   }
 
   return result
 }

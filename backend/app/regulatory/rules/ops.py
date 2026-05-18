@@ -12,7 +12,7 @@ from app.models.findings import Severity, Finding
 class RegOps1(BaseRule):
     rule_id = "REG-OPS-1"
     description = "After a door opening event, system must: stabilize within 3 minutes (REG-TEMP-3), not exceed 8°C during recovery window"
-    category = "operational"
+    category = "OPS"
     default_severity = Severity.HIGH
     data_source = ValidationSource.LOGS
     confidence = 1.0
@@ -134,7 +134,7 @@ class RegOps1(BaseRule):
 class RegOps2(BaseRule):
     rule_id = "REG-OPS-2"
     description = "Excessive access is defined as f_door > 10 events/hour and must trigger operational warning"
-    category = "operational"
+    category = "OPS"
     default_severity = Severity.LOW
     data_source = ValidationSource.LOGS
     confidence = 1.0
