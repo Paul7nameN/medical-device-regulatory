@@ -65,17 +65,17 @@ function Sidebar() {
   return (
      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:border-r lg:border-border lg:bg-card lg:h-screen lg:sticky lg:top-0">
        <div className="p-4 border-b border-border">
-         <Link to="/" className="flex items-center gap-3">
-           <div className="p-2 bg-primary/10 rounded-lg">
-             <Shield className="h-6 w-6 text-primary" />
-           </div>
-           <div>
-             <h1 className="font-semibold text-foreground text-lg font-heading">
-               MED-THERM
-             </h1>
-             <p className="text-xs text-muted-foreground">Compliance Engine</p>
-           </div>
-         </Link>
+          <Link to="/" className="flex items-center gap-3">
+            <div className="p-1 bg-primary/10 rounded-lg">
+              <img src="/favicon.png" alt="MED-THERM Logo" className="h-11 w-11" />
+            </div>
+            <div>
+              <h1 className="font-semibold text-foreground text-lg font-heading">
+                MED-THERM
+              </h1>
+              <p className="text-xs text-muted-foreground">Compliance Engine</p>
+            </div>
+          </Link>
        </div>
 
        <nav className="flex-1 p-4 space-y-1">
@@ -150,21 +150,21 @@ function MobileNav({ open, setOpen }: { open: boolean; setOpen: (open: boolean) 
      <Sheet open={open} onOpenChange={setOpen}>
        <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0">
          <div className="p-4 border-b border-border">
-           <Link
-             to="/"
-             onClick={() => setOpen(false)}
-             className="flex items-center gap-3"
-           >
-             <div className="p-2 bg-primary/10 rounded-lg">
-               <Shield className="h-6 w-6 text-primary" />
-             </div>
-             <div>
-               <h1 className="font-semibold text-foreground text-lg font-heading">
-                 MED-THERM
-               </h1>
-               <p className="text-xs text-muted-foreground">Compliance Engine</p>
-             </div>
-           </Link>
+            <Link
+              to="/"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3"
+            >
+              <div className="p-1.5 bg-primary/10 rounded-lg">
+                <img src="/favicon.png" alt="MED-THERM Logo" className="h-7 w-7" />
+              </div>
+              <div>
+                <h1 className="font-semibold text-foreground text-lg font-heading">
+                  MED-THERM
+                </h1>
+                <p className="text-xs text-muted-foreground">Compliance Engine</p>
+              </div>
+            </Link>
          </div>
 
          <nav className="p-4 space-y-1">
@@ -236,12 +236,12 @@ function MobileNav({ open, setOpen }: { open: boolean; setOpen: (open: boolean) 
               <Menu className="h-5 w-5" />
             </button>
 
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-foreground font-heading">
-                {currentPage?.label || 'MED-THERM'}
-              </span>
-            </div>
+             <div className="flex items-center gap-2">
+               <img src="/favicon.png" alt="MED-THERM Logo" className="h-6 w-6" />
+               <span className="font-semibold text-foreground font-heading">
+                 {currentPage?.label || 'MED-THERM'}
+               </span>
+             </div>
          </div>
 
           <div className="flex items-center gap-2">
