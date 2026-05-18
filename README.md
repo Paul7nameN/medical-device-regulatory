@@ -214,40 +214,6 @@ Acceseaza:
 | `MODEL_TEXT_ANALYSIS` | Da (daca AI) | - | Model pentru analiza text |
 | `AI_ENABLED` | Nu | `false` | Activeaza/dezactiveaza AI |
 
-## Pentru GitHub
-
-### Inainte de primul commit
-
-Asigura-te ca:
-
-1. **NU comiti fisierele .env** (ele sunt in .gitignore)
-2. Ai copiat `.env.example` ca `.env` si ai completat valorile
-3. Verifica git status:
-
-```bash
-git status
-```
-
-Nu ar trebui sa vezi niciun fisier `.env` in lista.
-
-### Initializare git pe un dispozitiv nou
-
-```bash
-# 1. Cloneaza repo-ul
-git clone <repository-url>
-cd medical-device-regulatory
-
-# 2. Creeaza fisierul .env din template
-Copy-Item .env.example .env   # Windows
-# sau
-cp .env.example .env           # Linux/Mac
-
-# 3. Editeaza .env si adauga MODELARK_API_KEY (daca ai nevoie de AI)
-
-# 4. Porneste cu Docker
-docker-compose up --build
-```
-
 ## Troubleshooting
 
 ### Port deja ocupat
