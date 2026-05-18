@@ -1,4 +1,8 @@
-# AI Analysis Module Documentation
+# AI Integration
+
+> Acest fisier a fost mutat din `docs/ai-analysis-module.md`.
+
+---
 
 ## Overview
 
@@ -34,6 +38,8 @@ The module performs three main functions:
 - Identifies matching and conflicting findings
 - Provides validation summaries
 
+---
+
 ## Architecture
 
 ```
@@ -50,6 +56,8 @@ backend/app/ai/
 └── integration/
     └── engine.py          # Integration with RegulatoryEngine
 ```
+
+---
 
 ## Inputs and Outputs
 
@@ -190,6 +198,8 @@ backend/app/ai/
 }
 ```
 
+---
+
 ## API Endpoints
 
 ### GET /api/ai/models
@@ -246,6 +256,8 @@ Generates an AI-powered compliance report.
 
 **Response:** See Report Generation Output above
 
+---
+
 ## MED-THERM-2026 Regulation Mapping
 
 ### Chart Analysis (Dola-Seed-2.0-pro)
@@ -260,25 +272,9 @@ The chart analyzer detects violations for these MED-THERM-2026 rules:
 | **REG-TEMP-4** | Sampling interval > 30 seconds (visible gaps) | `gap` |
 | **REG-OPS-1** | Door events causing prolonged excursions | `frequent_access` |
 
-**System Prompt Compliance:**
-The chart analysis system prompt explicitly references MED-THERM-2026 requirements:
-- REG-TEMP-1: Temperature must stay within 2°C to 8°C
-- REG-TEMP-2: Single excursion > 5min or cumulative > 10min/24h is critical
-- REG-TEMP-3: Recovery after disturbance must be ≤ 3 minutes
-- REG-TEMP-4: Sampling intervals must be ≤ 30 seconds
-- REG-OPS-1: Door events must not cause prolonged excursions
-
 ### Log Analysis (GLM-4.7)
 
-The log analyzer provides context for all MED-THERM-2026 rule categories:
-
-**System Prompt Compliance:**
-The log analysis system prompt includes all MED-THERM-2026 rules:
-- REG-TEMP-1 through REG-TEMP-4 (Thermal safety)
-- REG-SENS-1: Dual sensor redundancy (PRIMARY + SECONDARY)
-- REG-ALARM-1: Alarm activation after ≥2min out of range
-- REG-DATA-2: Telemetry gaps ≤ 90 seconds
-- REG-OPS-1: Door recovery requirements
+The log analyzer provides context for all MED-THERM-2026 rule categories.
 
 **Risk Assessment Mapping:**
 - **"low"**: No violations, all readings within limits
@@ -286,25 +282,7 @@ The log analysis system prompt includes all MED-THERM-2026 rules:
 - **"high"**: Multiple violations, pattern of non-compliance
 - **"critical"**: Critical violations (REG-TEMP-2 exceeded, dual sensor failure)
 
-### Report Generation
-
-The report generator structures output by MED-THERM-2026 categories:
-
-1. **Thermal Safety (REG-TEMP)** - Temperature monitoring and excursions
-2. **Sensor Redundancy (REG-SENS)** - Primary/secondary sensor health
-3. **Alarm System (REG-ALARM)** - Alarm activation and timing
-4. **Data Integrity (REG-DATA)** - Telemetry sync and gaps
-5. **Power System (REG-POWER)** - Voltage and battery levels
-6. **Cooling System (REG-COOL)** - Fan speed and cooling performance
-7. **Operational Behavior (REG-OPS)** - Door events and recovery
-
-### Cross-Validation
-
-The integration engine cross-validates findings:
-- Compares log-based REG-TEMP violations with chart-detected excursions
-- Matches REG-TEMP-3 (recovery time) violations between sources
-- Identifies conflicting findings for manual review
-- Calculates confidence scores for multi-source validation
+---
 
 ## Important Implementation Decisions
 
@@ -329,15 +307,7 @@ The integration engine cross-validates findings:
 - Enables concurrent chart and log analysis
 - Better performance under high load
 
-### 4. JSON Response Format
-**Decision:** Enforce structured JSON responses from AI models
-**Rationale:**
-- Type-safe parsing and validation
-- Consistent API responses
-- Easier to integrate with existing codebase
-- Enables confidence scoring and error handling
-
-### 5. Graceful Degradation
+### 4. Graceful Degradation
 **Decision:** AI analysis is optional; system works without it
 **Rationale:**
 - Existing regulatory engine continues to function if AI is unavailable
@@ -345,45 +315,7 @@ The integration engine cross-validates findings:
 - No breaking changes to existing functionality
 - Allows gradual rollout and testing
 
-### 6. Error Handling Strategy
-**Decision:** Comprehensive error handling with user-friendly messages
-**Rationale:**
-- API errors are caught and logged
-- Users receive clear error messages (not stack traces)
-- Retry logic handles transient failures
-- Rate limit errors include retry-after information
-
-### 7. Confidence Scoring
-**Decision:** Include confidence scores in all AI outputs
-**Rationale:**
-- Helps users assess reliability of AI findings
-- Enables human-in-the-loop workflows
-- Supports cross-validation between log and chart analysis
-- Provides transparency about AI uncertainty
-
-### 8. Prompt Engineering
-**Decision:** Use detailed system prompts with explicit regulatory references
-**Rationale:**
-- Ensures AI understands MED-THERM-2026 requirements
-- Reduces hallucinations and false positives
-- Provides consistent output format
-- Enables accurate violation detection
-
-### 9. Image Validation
-**Decision:** Validate image size and format before API call
-**Rationale:**
-- Prevents unnecessary API costs
-- Provides immediate feedback to users
-- Protects against malicious uploads
-- 10MB limit balances utility and performance
-
-### 10. Logging and Observability
-**Decision:** Comprehensive logging at all levels
-**Rationale:**
-- Tracks API usage and performance
-- Enables debugging and troubleshooting
-- Monitors model availability and response times
-- Supports audit trails for compliance
+---
 
 ## Configuration
 
@@ -411,6 +343,8 @@ modelark_max_retries: int = 3
 ai_enabled: bool = False  # Auto-enabled if API key is set
 ```
 
+---
+
 ## Performance Targets
 
 | Operation | Target | Notes |
@@ -419,6 +353,8 @@ ai_enabled: bool = False  # Auto-enabled if API key is set
 | Text analysis | < 15s | Log summary generation |
 | Report generation | < 20s | Comprehensive report generation |
 | Memory per request | < 50MB | Image + response handling |
+
+---
 
 ## Error Handling
 
@@ -436,6 +372,8 @@ All errors include:
 - Retry availability indicators
 - Retry-after timing when applicable
 - Detailed logging for debugging
+
+---
 
 ## Integration with Regulatory Engine
 
@@ -455,20 +393,7 @@ result = await engine.validate_with_ai(
 )
 ```
 
-**Result Structure:**
-```python
-{
-    "report": {...},           # Base regulatory report
-    "ai_analysis": {           # AI analysis results
-        "chart": {...},       # Chart analysis (if image provided)
-        "logs": {...},        # Log analysis
-        "report": {...}       # Generated report (if requested)
-    },
-    "cross_validation": {...}, # Cross-validation results
-    "ai_enabled": true,
-    "warnings": []            # Warnings if AI fails
-}
-```
+---
 
 ## Testing
 
@@ -487,6 +412,8 @@ pytest tests/test_text_analyzer.py
 pytest tests/test_ai_integration.py
 ```
 
+---
+
 ## Security Considerations
 
 1. **API Key Storage**: Keys stored in environment variables, not in code
@@ -496,6 +423,8 @@ pytest tests/test_ai_integration.py
 5. **Prompt Injection**: System prompts are hardcoded, not user-controlled
 6. **Output Sanitization**: JSON responses validated before use
 7. **Rate Limiting**: Respects API rate limits with exponential backoff
+
+---
 
 ## Future Enhancements
 
@@ -509,3 +438,12 @@ Potential improvements for future iterations:
 6. **Cost Tracking**: Track and report API usage costs
 7. **Model Fine-tuning**: Fine-tune models on device-specific data
 8. **Multi-language Support**: Support for non-English reports
+
+---
+
+## References
+
+- **OpenSpec Change:** `openspec/changes/archive/2026-05-12-ai-analysis/`
+- **Regulatory Engine:** `docs/architecture/regulatory-engine.md`
+- **Sample Charts:** `docs/user-guide/examples/noncompliant_temperature_profile.png`
+- **API Documentation:** http://localhost:8000/docs (when running)

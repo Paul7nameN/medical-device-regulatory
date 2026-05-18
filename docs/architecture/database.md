@@ -1,4 +1,8 @@
-# Database Schema Module Documentation
+# Schema Bazei de Date
+
+> Acest fisier a fost mutat din `docs/database-schema-module.md`.
+
+---
 
 ## Overview
 
@@ -625,7 +629,6 @@ async def some_async_function():
 - camelCase - Can cause case-sensitivity issues
 
 ### 3. Time-Series Indexing Strategy
-
 
 
 **Decision:** B-tree indexes on `log_entries.timestamp` and composite `(device_id, timestamp)`.

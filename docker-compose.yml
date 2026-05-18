@@ -35,7 +35,8 @@ services:
       MODELARK_API_KEY: ${MODELARK_API_KEY:-}
       MODEL_CHART_ANALYSIS: seed-2-0-pro-260328
       MODEL_TEXT_ANALYSIS: seed-2-0-pro-260328
-      AI_ENABLED: ${MODELARK_API_KEY:+true}
+       # AI_ENABLED nu este setat aici - se determina automat din config.py:
+       # Daca MODELARK_API_KEY exista si nu este gol, atunci ai_enabled=True automat
     ports:
       - "8000:8000"
     volumes:

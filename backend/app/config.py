@@ -1,5 +1,6 @@
+from typing import Any, Optional, List
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
-from typing import Optional, List
 
 
 class Settings(BaseSettings):
@@ -28,6 +29,24 @@ class Settings(BaseSettings):
 
     ai_enabled: bool = False
 
+    @field_validator("ai_enabled", mode="before")
+    @classmethod
+    def parse_ai_enabled(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            v = v.strip().lower()
+            if v in ("", "0", "false", "no", "off", "none"):
+                return False
+            if v in ("1", "true", "yes", "on"):
+                return True
+        return v
+
+    @field_validator("modelark_api_key", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v: Any) -> Any:
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
     class Config:
         env_file = ".env"
         extra = "ignore"
@@ -35,5 +54,5 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-if settings.modelark_api_key and not settings.ai_enabled:
+if settings.modelark_api_key is not None and not settings.ai_enabled:
     settings.ai_enabled = True

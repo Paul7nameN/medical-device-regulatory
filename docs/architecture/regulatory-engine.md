@@ -1,4 +1,8 @@
-# Regulatory Engine Documentation
+# Regulatory Engine
+
+> Acest fisier a fost mutat din `docs/regulatory-engine.md`.
+
+---
 
 ## Overview
 
