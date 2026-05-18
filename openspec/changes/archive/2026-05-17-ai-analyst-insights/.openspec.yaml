@@ -1,0 +1,11 @@
+name: ai-analyst-insights
+title: AI Analyst with Risk Scoring, Predictions & Conversational Chat
+description: >
+  Adauga un AI Analyst automat care ruleaza dupa fiecare incarcare (.txt sau .png).
+  Transforme datele brute in intelligence: pattern-uri ascunse, corelatii intre variabile,
+  risk scoring elaborat, predictii pe baza pattern-urilor, si un action plan detaliat.
+  Include si un chat bot conversational pentru intrebari si urmare.
+status: pending
+author: system
+created_at: 2026-05-16
+priority: high

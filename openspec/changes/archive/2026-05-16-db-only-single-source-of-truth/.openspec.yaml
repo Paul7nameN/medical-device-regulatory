@@ -1,0 +1,12 @@
+name: db-only-single-source-of-truth
+title: Simplify Analysis History to use ONLY Database as Single Source of Truth
+description: >
+  Elimină sincronizarea între localStorage și baza de date.
+  Folosește DOAR baza de date PostgreSQL ca sursă unică de adevăr.
+  La pornire: DOAR GET /api/analysis
+  După upload: DOAR refresh din DB
+  localStorage devine optional (doar fallback offline) sau eliminat complet.
+status: pending
+author: system
+created_at: 2026-05-16
+priority: high

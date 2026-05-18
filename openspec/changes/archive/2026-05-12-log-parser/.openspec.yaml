@@ -1,0 +1,27 @@
+change:
+  name: log-parser
+  schema: spec-driven
+  created: 2026-05-12
+  completed: 2026-05-12
+  description: Python module that parses device logs with format 'TIMESTAMP EVENT_TYPE VALUE' extracting: timestamps, event types, values. Must detect: telemetry gaps over 90 seconds (REG-DATA-2), SENSOR_TIMEOUT events (REG-SENS-1), ALARM_TRIGGERED sequences (REG-ALARM-1), DOOR_OPEN/CLOSE events (REG-OPS-1), TEMP_READING values outside 2-8C range (REG-TEMP-1)
+
+artifacts:
+  proposal:
+    path: proposal.md
+    status: done
+  design:
+    path: design.md
+    status: done
+    requires:
+      - proposal
+  tasks:
+    path: tasks.md
+    status: done
+    requires:
+      - design
+
+implementation:
+  status: complete
+  tasks_total: 6
+  tasks_complete: 6
+  files_created: 6

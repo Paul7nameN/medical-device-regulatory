@@ -1,0 +1,63 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# === Virtual Environments ===
+.venv/
+venv/
+ENV/
+env/
+
+# === Node.js / Frontend ===
+node_modules/
+dist/
+.npm
+.parcel-cache/
+
+# === Environment variables (SECRETE - NEVER COMMIT!) ===
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# === IDE / Editors ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# === Build artifacts ===
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# === Alembic / migrations ===
+alembic.ini
+
+# === Logs ===
+*.log
+logs/
+
+# === OS ===
+Thumbs.db
+
+# === AI Agent Tools (opencode, Claude Code) ===
+# Pastram skills-urile si configurarile, dar ignoram dependintele
+# .opencode/skills/        # Pastram - skills specifice proiectului
+# .opencode/package.json    # Pastram
+# .opencode/package-lock.json # Pastram
+# node_modules/            # DEJA ignorat (deja exista regula)
+# __pycache__/           # DEJA ignorat (deja exista regula)
+
+gitcommands.md

@@ -1,0 +1,27 @@
+change:
+  name: regulatory-engine
+  schema: spec-driven
+  created: 2026-05-12
+  completed: 2026-05-12
+  description: Python backend module that parses MED-THERM-2026 regulatory constraints into structured validation rules and applies them against device logs
+
+artifacts:
+  proposal:
+    path: proposal.md
+    status: done
+  design:
+    path: design.md
+    status: done
+    requires:
+      - proposal
+  tasks:
+    path: tasks.md
+    status: done
+    requires:
+      - design
+
+implementation:
+  status: complete
+  tasks_total: ~30
+  tasks_complete: ~30
+  artifacts_created: 41

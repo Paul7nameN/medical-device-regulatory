@@ -1,0 +1,10 @@
+name: fix-duplicate-analysis-sessions
+title: Fix Duplicate Analysis Sessions and Inconsistent Timestamps
+description: >
+  Două probleme interconectate:
+  1. Două analysis sessions pentru același upload (din cauza timestamp-urilor diferite)
+  2. Unul dintre rapoarte are compliance score 100% eronat (din cauza structurilor diferite)
+status: pending
+author: system
+created_at: 2026-05-16
+priority: critical

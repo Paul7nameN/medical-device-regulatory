@@ -1,0 +1,37 @@
+schema: spec-driven
+
+context: |
+  Project: MED-THERM Compliance Platform
+  Domain: Medical device regulatory compliance (MED-THERM-2026 standard)
+  
+  Tech Stack:
+  - Frontend: React with TypeScript
+  - Backend: Python with FastAPI
+  - Database: PostgreSQL with SQLAlchemy ORM, Alembic migrations
+  - VLLM: Vision Language Model integration for image/document analysis
+
+  Regulatory Categories (MED-THERM-2026):
+  - REG-TEMP (1-4): Thermal safety (2-8°C range, excursions, recovery, sampling)
+  - REG-SENS (1-3): Sensor redundancy (dual sensors, placement, ±0.5°C agreement)
+  - REG-ALARM (1-3): Alarm system (2min activation, 10s latency, 3 channels)
+  - REG-DATA (1-3): Data integrity (immutable logs, ≤90s gaps, 72h retention)
+  - REG-POWER (1-2): Power system (≥4h battery, degraded mode compliance)
+  - REG-COOL (1-2): Cooling system (≥2 airflow paths, 3min failure tolerance)
+  - REG-INS (1-2): Structural insulation (≥4cm, battery isolation)
+  - REG-OPS (1-2): Operational behavior (door recovery, ≤10 accesses/hour)
+
+  Severity Levels: Critical > High > Medium > Low > Info
+
+  Conventions:
+  - Validation rules: modular, testable classes per REG-* ID
+  - VLLM: abstract interface supporting multiple providers
+  - API: RESTful JSON with OpenAPI/Swagger
+  - No authentication for PoC (single-user mode)
+
+rules:
+  proposal:
+    - Reference MED-THERM-2026 regulatory requirements where applicable
+    - Include severity classification for compliance-related work
+  tasks:
+    - Break tasks into chunks of max 2 hours
+    - Link regulatory rule IDs (REG-TEMP-1, etc.) when relevant

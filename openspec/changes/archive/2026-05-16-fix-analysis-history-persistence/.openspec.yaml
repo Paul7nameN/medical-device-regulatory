@@ -1,0 +1,10 @@
+name: fix-analysis-history-persistence
+title: Fix Analysis History Not Persisting After App Restart
+description: >
+  Două probleme critice identificate:
+  1. Frontend folosește sessionStorage (se șterge când închizi tab-ul)
+  2. Backend nu returnează latest_analysis_data în API (frontendul nu poate converti analizele)
+status: pending
+author: system
+created_at: 2026-05-16
+priority: critical

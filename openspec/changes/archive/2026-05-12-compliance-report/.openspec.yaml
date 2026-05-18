@@ -1,0 +1,38 @@
+change:
+  name: compliance-report
+  schema: spec-driven
+  created: 2026-05-12
+  description: Python module that aggregates results from log-parser, regulatory-engine, and ai-analysis to produce structured compliance reports containing: violations list mapped to REG-* codes, severity classification (critical/major/minor/info), temporal analysis of events, and actionable recommendations. Critical violations include: REG-TEMP-1 exceedances, REG-SENS-1 redundancy failures, REG-ALARM-1 delayed alarms
+
+artifacts:
+  proposal:
+    path: proposal.md
+    status: done
+  design:
+    path: design.md
+    status: done
+    requires:
+      - proposal
+  tasks:
+    path: tasks.md
+    status: done
+    requires:
+      - design
+
+implementation:
+  status: in_progress
+  tasks_total: 35
+  tasks_complete: 32
+  files_created:
+    - backend/app/reports/__init__.py
+    - backend/app/reports/aggregator.py
+    - backend/app/reports/exceptions.py
+    - backend/app/reports/models.py
+    - backend/app/reports/recommendations.py
+    - backend/app/reports/severity.py
+    - backend/app/reports/temporal.py
+    - backend/app/api/reports.py
+    - backend/tests/test_severity_classifier.py
+    - backend/tests/test_temporal_analysis.py
+    - backend/tests/test_aggregator.py
+    - backend/app/main.py (updated)

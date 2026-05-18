@@ -1,0 +1,14 @@
+name: persist-chart-analysis
+title: Persist Chart Image Analysis to Database
+description: >
+  Fix: Chart analysis (.png/.jpg) nu se salvează în baza de date.
+  Doar .txt log files folosesc reportsApi.generateFromLogs() care salvează în DB.
+  .png/.jpg folosesc aiApi.analyzeChart() care DOAR analizează, NU salvează.
+  După schimbarea recentă (refreshHistory() în loc de addAnalysis()),
+  analizele imaginilor nu apar deloc în istoric.
+  Soluție: Adaugă persistence.save_analysis_session() în endpoint-ul
+  POST /api/ai/analyze-chart, similar cu POST /api/reports/generate.
+status: pending
+author: system
+created_at: 2026-05-16
+priority: high

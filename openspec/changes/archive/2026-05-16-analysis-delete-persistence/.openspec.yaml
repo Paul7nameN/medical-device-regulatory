@@ -1,0 +1,16 @@
+name: analysis-delete-persistence
+title: Permanent Delete from History (DELETE from Database)
+description: >
+  Corecția: când utilizatorul dă click pe "Șterge" din istoric,
+  ștergerea trebuie să fie permanentă în baza de date.
+  Actualmente: removeAnalysis() modifică DOAR React state.
+  După refresh: apar din nou pentru că sunt încă în DB.
+  Soluție:
+  1. Adaugă endpoint DELETE /api/analysis/{id} în backend
+  2. Setează CASCADE pentru LogEntry și DetectedViolation
+  3. (Opțional) DELETE /api/analysis/all pentru bulk
+  4. Frontend: removeAnalysis() și clearHistory() apelează API
+status: pending
+author: system
+created_at: 2026-05-16
+priority: high

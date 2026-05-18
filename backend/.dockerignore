@@ -1,0 +1,13 @@
+__pycache__
+.venv
+.env
+.env.local
+*.pyc
+*.pyo
+.pytest_cache
+.idea
+.vscode
+.git
+.gitignore
+*.md
+!requirements.txt
