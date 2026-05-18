@@ -43,7 +43,10 @@ eggs/
 .eggs/
 
 # === Alembic / migrations ===
-alembic.ini
+# alembic.ini ACUM ESTE IN GIT!
+# - script_location = migrations este necesar
+# - sqlalchemy.url din acest fisier NU este folosit (este suprascris din variabila de mediu)
+# Daca ai nevoie de configuratie locala speciala, creeaza alembic_local.ini si seteaza ALEMBIC_CONFIG
 
 # === Logs ===
 *.log
