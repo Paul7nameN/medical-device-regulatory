@@ -1,35 +1,35 @@
-# Cum Adaugi Reguli Noi
+# How to Add New Rules
 
-O regula este o clasa Python care mosteneste din `BaseRule`.
+A rule is a Python class that inherits from `BaseRule`.
 
 ---
 
-## Structura unei reguli
+## Structure of a Rule
 
 ```python
 from app.regulatory.rules.base import BaseRule, register_rule
 from app.models.findings import Severity
 
 @register_rule
-class RegTempNou(BaseRule):
+class RegTempNew(BaseRule):
     rule_id = "REG-TEMP-NEW"
-    description = "Noua regula"
+    description = "New rule description"
     category = "TEMP"
     default_severity = Severity.HIGH
 
     def validate(self, logs, context):
-        # Logica de validare aici
+        # Validation logic here
         pass
 ```
 
 ---
 
-## Unde sa o pui
+## Where to place it
 
-Adauga o regula in fisierul corespunzator categoriei:
+Add a rule to the file corresponding to its category:
 
-| Categorie | Fisier |
-|-----------|--------|
+| Category | File |
+|----------|------|
 | TEMP | `backend/app/regulatory/rules/temp.py` |
 | SENS | `backend/app/regulatory/rules/sens.py` |
 | ALARM | `backend/app/regulatory/rules/alarm.py` |
@@ -41,27 +41,27 @@ Adauga o regula in fisierul corespunzator categoriei:
 
 ---
 
-## Cum o inregistrezi
+## How to register
 
-### Metoda 1: Cu decorator (Recomandat)
+### Method 1: With decorator (Recommended)
 
-Foloseste decoratorul `@register_rule`:
+Use the `@register_rule` decorator:
 
 ```python
 from app.regulatory.rules.base import BaseRule, register_rule
 from app.models.findings import Severity
 
 @register_rule
-class RegNou(BaseRule):
+class RegNew(BaseRule):
     rule_id = "REG-NEW-1"
-    # ... restul codului
+    # ... rest of code
 ```
 
-Regula va fi inregistrata automat in `RuleRegistry` cand modulul este importat.
+The rule is automatically registered in `RuleRegistry` when the module is imported.
 
 ---
 
-## Exemplu Complet
+## Complete Example
 
 ```python
 from typing import List, Dict, Any
@@ -70,9 +70,9 @@ from app.models.findings import Severity, Finding, Evidence
 from app.models.logs import LogEntry
 
 @register_rule
-class RegTempNou(BaseRule):
+class RegTempNew(BaseRule):
     rule_id = "REG-TEMP-NEW"
-    description = "Verifica ca temperatura nu scade sub 0°C"
+    description = "Check that temperature does not drop below 0°C"
     category = "TEMP"
     default_severity = Severity.CRITICAL
 
@@ -86,10 +86,10 @@ class RegTempNou(BaseRule):
                     findings.append(
                         self.create_finding(
                             passed=False,
-                            message=f"Temperatura {temp}°C scade sub 0°C",
+                            message=f"Temperature {temp}°C drops below 0°C",
                             evidence_logs=[log],
                             severity=Severity.CRITICAL,
-                            remediation_hint="Verifica sistemul de incalzire"
+                            remediation_hint="Check heating system"
                         )
                     )
         
@@ -101,44 +101,49 @@ class RegTempNou(BaseRule):
 
 ---
 
-## Metode ajutatoare in `BaseRule`
+## Helper Methods in `BaseRule`
 
 ### `create_finding()`
 
-Creeaza un finding cu toate campuri:
+Create a finding with all fields:
 
-- `passed: bool` - True daca regula a trecut
-- `message: str` - Mesaj explicativ
-- `evidence_logs: List[LogEntry]` (optional) - Log-urile care au dus la aceasta concluzie
-- `severity: Severity` (optional) - Daca nu e nevoie de un severity diferit de cel implicit
-- `remediation_hint: str` (optional) - Indiciune despre ce trebuie sa faci
-- `needs_visual_verification: bool` (optional) - Daca necesita verificare vizuala
+- `passed: bool` - True if rule passed
+
+- `message: str` - Explanatory message
+
+- `evidence_logs: List[LogEntry]` (optional) - Log entries that led to this conclusion
+
+- `severity: Severity` (optional) - If you need a different severity than default
+
+- `remediation_hint: str` (optional) - Hint about what to do
+
+- `needs_visual_verification: bool` (optional) - If visual verification is needed
 
 ### `create_pass_finding()`
 
-Creeaza un finding de "trecere.
+Create a "pass" finding.
 
 ### `create_info_finding()`
 
-Creeaza un finding de tip info.
+Create an info finding.
 
 ---
 
-## Dupa ce ai creat regula noua
+## After creating the new rule
 
-1. Verifica daca este importata in `main.py`
+1. Check if it's imported in `main.py`
 
 In `backend/app/main.py`:
 
 ```python
 from app.regulatory.rules import (
-    # ... regulile
+    # ... existing rules
 )
 ```
 
-Daca ai adaugi o noua categorie noua in fisier existent, nu trebuie sa modificat nimic in `main.py` - decoratorul face treaba.
+If you add a new category to an existing file, you don't need to modify anything in `main.py` - the decorator handles it.
 
-2. Ruleaza testele:
+2. Run tests:
 
 ```bash
 cd backend

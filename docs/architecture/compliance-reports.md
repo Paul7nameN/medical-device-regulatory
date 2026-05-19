@@ -1,8 +1,5 @@
 # Compliance Reports
 
-> Acest fisier a fost mutat din `docs/compliance-report-module.md`.
-
----
 
 ## Overview
 

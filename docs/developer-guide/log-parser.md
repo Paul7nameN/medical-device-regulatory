@@ -1,6 +1,6 @@
 # Log Parser
 
-> Acest fisier a fost mutat din `docs/log-parser.md`.
+> This file was moved from `docs/log-parser.md`.
 
 ---
 

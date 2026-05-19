@@ -1,9 +1,13 @@
-# Ghid de Utilizare
+# User Guide
 
-Ghid complet pentru utilizatorii finali ai MED-THERM.
+Complete guide for MED-THERM end users.
 
-## Continut
-- [Overview al Dashboard-ului](dashboard-overview.md)
-- [Cum uploadezi fisiere](uploading-files.md)
-- [Cum analizezi rezultatele](analyzing-results.md)
-- [Exemple Practice](examples/)
+## Contents
+
+- [Dashboard Overview](dashboard-overview.md)
+
+- [How to Upload Files](uploading-files.md)
+
+- [How to Analyze Results](analyzing-results.md)
+
+- [Practical Examples](examples/)

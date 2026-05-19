@@ -1,38 +1,43 @@
-# Cum uploadezi fisiere
+# How to Upload Files
 
 ---
 
-## Tipuri de fisiere acceptate
+## Accepted File Types
 
-| Tip | Format | Descriere |
-|-----|--------|-----------|
-| **Log-uri** | `.txt` | Fisiere de log de la dispozitive medicale |
-| **Imagini** | `.png`, `.jpg` | Imagini cu chart-uri de temperatura |
-
----
-
-## Cum uploadezi
-
-1. Intra in pagina **Overview**
-2. Da **drag & drop** in zona de upload
-3. Sau **click pe zona** pentru a alege fisiere
-
-Multiplu fisiere pot fi uploadate simultan (maxim 10 fisiere, 50MB fiecare).
+| Type | Format | Description |
+|------|--------|-------------|
+| **Logs** | `.txt` | Log files from medical devices |
+| **Images** | `.png`, `.jpg` | Temperature chart images |
 
 ---
 
-## Ce se intampla dupa upload
+## How to Upload
 
-1. **Log Parser** parseaza fisierele .txt
-2. **AI Image Analysis** analizeaza imaginile .png/.jpg (daca AI este activat)
-3. **Regulatory Engine** ruleaza toate regulile
-4. **Dashboard** se actualizeaza cu rezultatele
+1. Go to the **Overview** page
+
+2. **Drag & drop** into the upload zone
+
+3. Or **click on the zone** to select files
+
+Multiple files can be uploaded simultaneously (max 10 files, 50MB each).
 
 ---
 
-## Exemple de log-uri
+## What Happens After Upload
 
-Vezi exemple practice in `docs/user-guide/examples/`:
-- `medical_device_logs_1000.txt` - Exemplu de 1000 de intrari
-- `compliant_temperature_profile.png` - Chart conform
-- `noncompliant_temperature_profile.png` - Chart neconform
+1. **Log Parser** parses `.txt` files
+
+2. **AI Image Analysis** analyzes `.png/.jpg` images (if AI is enabled)
+
+3. **Regulatory Engine** runs all rules
+
+4. **Dashboard** updates with results
+
+---
+
+## Example Logs
+
+See practical examples in `docs/user-guide/examples/`:
+- `medical_device_logs_1000.txt` - 1000 entry sample
+- `compliant_temperature_profile.png` - Compliant chart
+- `noncompliant_temperature_profile.png` - Non-compliant chart

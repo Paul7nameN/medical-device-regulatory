@@ -1,9 +1,13 @@
-# Arhitectura Tehnica
+# Technical Architecture
 
-Afla cum functioneaza MED-THERM sub capota.
+Learn how MED-THERM works under the hood.
 
-## Continut
-- [Overview Arhitectural](overview.md) - Diagrame si flow de date
-- [Schema Bazei de Date](database.md)
+## Contents
+
+- [Architectural Overview](overview.md) - Diagrams and data flow
+
+- [Database Schema](database.md)
+
 - [Regulatory Engine](regulatory-engine.md)
+
 - [API Documentation](api.md)

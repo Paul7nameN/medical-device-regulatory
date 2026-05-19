@@ -1,78 +1,82 @@
-# Ghid de Instalare
+# Installation Guide
 
-Cel mai simplu mod de a rula aplicatia pe orice dispozitiv este cu Docker.
+The easiest way to run the application on any device is with Docker.
 
 ---
 
-## Prerechizite
+## Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
 - [Git](https://git-scm.com/)
 
 ---
 
-## Pasii de Instalare
+## Installation Steps
 
-### 1. Cloneaza proiectul
+### 1. Clone the project
 
 ```bash
 git clone <repository-url>
 cd medical-device-regulatory
 ```
 
-### 2. Configurare variabile mediu
+### 2. Configure environment variables
 
-Copiaza fisierul template si completeaza valorile:
+Copy the template file and fill in the values:
 
 ```bash
 # Windows (PowerShell)
 Copy-Item .env.example .env
 
-# Sau Linux/Mac
+# Or Linux/Mac
 cp .env.example .env
 ```
 
-### 3. Porneste serviciile
+### 3. Start the services
 
 ```bash
 docker-compose up --build
 ```
 
-La prima rulare:
-- Se descarca imaginile Docker (PostgreSQL, Python, Node.js)
-- Se creaza baza de date
-- Se ruleaza migrarile automat
-- Se compileaza backend-ul si frontend-ul
+On first run:
+- Docker images are downloaded (PostgreSQL, Python, Node.js)
 
-### 4. Acceseaza aplicatia
+- Database is created
 
-| Serviciu | URL | Descriere |
-|----------|-----|-----------|
-| **Frontend** | http://localhost:5173 | Interfata web |
+- Migrations run automatically
+
+- Backend and frontend are compiled
+
+### 4. Access the application
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Frontend** | http://localhost:5173 | Web interface |
 | **Backend API** | http://localhost:8000 | API endpoints |
 | **API Docs** | http://localhost:8000/docs | Swagger UI |
-| **ReDoc** | http://localhost:8000/redoc | Documentatie alternativa |
+| **ReDoc** | http://localhost:8000/redoc | Alternative documentation |
 
 ---
 
-## Comenzi Docker Utile
+## Useful Docker Commands
 
 ```bash
-# Porneste serviciile in background
+# Start services in background
 docker-compose up -d --build
 
-# Vezi log-urile
+# View logs
 docker-compose logs -f
 
-# Vezi log-urile doar pentru backend
+# View logs for backend only
 docker-compose logs -f backend
 
-# Opreste serviciile
+# Stop services
 docker-compose down
 
-# Opreste si sterge volumul cu datele din BD (ATENTIE: se pierd datele!)
+# Stop and delete database volume (WARNING: data will be lost!)
 docker-compose down -v
 
-# Restarteaza doar un serviciu
+# Restart just one service
 docker-compose restart backend
 ```

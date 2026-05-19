@@ -1,74 +1,74 @@
-# Overview al Dashboard-ului
+# Dashboard Overview
 
-Dashboard-ul are 5 tab-uri principale:
+The dashboard has 5 main tabs:
 
 ---
 
 ## 1. Overview
 
-Rezumat general al analizei:
-- **Compliance Score** - Scorul de conformitate
-- **Severity Counts** - Numarul de violari pe severitate
-- **Compliance by Category** - Rezumat pe categorii
-- **AI Analysis** - Daca AI este activat, vei vedea si insights-urile AI
+General analysis summary:
+- **Compliance Score** - Compliance percentage
+- **Severity Counts** - Number of violations by severity
+- **Compliance by Category** - Summary by category
+- **AI Analysis** - If AI is enabled, you'll also see AI insights
 
 ---
 
 ## 2. Temperature
 
-Graficul temperaturilor:
-- **Sensor A** - Temperatura senzorul primar
-- **Sensor B** - Temperatura senzorul secundar (daca exista)
-- **Safe Range** - Banda verde indica intervalul sigur (2-8°C)
-- **Exemplare** - In rosu/portocaliu cand temperatura este in afara intervalului
+Temperature chart:
+- **Sensor A** - Primary sensor temperature
+- **Sensor B** - Secondary sensor temperature (if exists)
+- **Safe Range** - Green band indicates safe range (2-8°C)
+- **Excursions** - In red/orange when temperature is outside range
 
-### Carduri Info:
-- **Sensor A (Avg)** - Temperatura medie a senzorului primar
-- **Sensor B (Avg)** - Temperatura medie a senzorului secundar
-- **Safe Range** - Intervalul sigur (2-8°C)
-- **Status** - Numarul de probleme detectate
+### Info Cards:
+- **Sensor A (Avg)** - Average temperature of primary sensor
+- **Sensor B (Avg)** - Average temperature of secondary sensor
+- **Safe Range** - Safe range (2-8°C)
+- **Status** - Number of detected issues
 
 ---
 
 ## 3. Violations
 
-Tabelul cu toate violarile:
-- **Severitate** - Critical, High, Medium, Low
-- **Cod Regula** - De ex: REG-TEMP-1
-- **Descriere** - Descrierea violarii
-- **Detectat La** - Cand a fost detectata
+Table with all violations:
+- **Severity** - Critical, High, Medium, Low
+- **Rule Code** - E.g., REG-TEMP-1
+- **Description** - Violation description
+- **Detected At** - When it was detected
 - **Status** - Open, Acknowledged, Resolved
 
-### Carduri de Sus:
-- **Critical** - Violari critice (actiune imediata)
-- **Open** - Violari deschise
-- **Acknowledged** - Violari recunoscute
-- **Resolved** - Violari rezolvate
+### Top Cards:
+- **Critical** - Critical violations (immediate action)
+- **Open** - Open violations
+- **Acknowledged** - Acknowledged violations
+- **Resolved** - Resolved violations
 
 ---
 
 ## 4. Rules
 
-Referinta la toate regulile MED-THERM-2026:
-- Categoria
-- Codul regulii
-- Descrierea
-- Severitatea implicita
+Reference to all MED-THERM-2026 rules:
+- Category
+- Rule code
+- Description
+- Default severity
 
 ---
 
 ## 5. History
 
-Istoricul analizelor:
-- Numarul analizei
+Analysis history:
+- Analysis number
 - Device
 - Analyzed At
 - Score
 - Violations
 - Status
-- Actiuni: Load, Remove
+- Actions: Load, Remove
 
-Poti:
-- **Load** - Incarca o analiza anterioara
-- **Remove** - Sterge o analiza din istoric
-- **Clear All** - Sterge toate analizele (cu confirmare)
+You can:
+- **Load** - Load a previous analysis
+- **Remove** - Delete an analysis from history
+- **Clear All** - Delete all analyses (with confirmation)

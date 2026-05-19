@@ -1,53 +1,53 @@
-# Cum analizezi rezultatele
+# How to Analyze Results
 
 ---
 
-## Dupa upload, vei vedea
+## After Upload, You'll See
 
 ### Compliance Score
 
-Scorul de conformitate (0-100%):
-- **90-100%** - Foarte bun
-- **70-89%** - Acceptabil
-- **Sub 70%** - Necesita atentie
+Compliance score (0-100%):
+- **90-100%** - Very good
+- **70-89%** - Acceptable
+- **Below 70%** - Needs attention
 
-Calculat ca:
+Calculated as:
 ```
-Score = (Reguli Trecute / Total Reguli) × 100
+Score = (Rules Passed / Total Rules) × 100
 ```
 
-### Categorii
+### Categories
 
-Pe ce categorii sunt probleme:
-- **TEMP** - Controlul temperaturii
-- **SENS** - Senzori
-- **ALARM** - Alarme
-- **DATA** - Date
-- **POWER** - Alimentare
-- **COOL** - Răcire
-- **INS** - Insulatie
-- **OPS** - Operatiuni
+Which categories have issues:
+- **TEMP** - Temperature control
+- **SENS** - Sensors
+- **ALARM** - Alarms
+- **DATA** - Data
+- **POWER** - Power
+- **COOL** - Cooling
+- **INS** - Insulation
+- **OPS** - Operations
 
 ### Violations
 
-Detalii despre fiecare violare:
+Details about each violation:
 
-| Severitate | Actiune necesara |
-|------------|------------------|
-| **CRITICAL** | Actiune imediata (24 ore) |
-| **HIGH** | Prioritate mare (72 ore) |
-| **MEDIUM** | Urmatoarea intretinere |
-| **LOW** | Monitorizeaza |
+| Severity | Required Action |
+|----------|-----------------|
+| **CRITICAL** | Immediate action (24 hours) |
+| **HIGH** | High priority (72 hours) |
+| **MEDIUM** | Next maintenance |
+| **LOW** | Monitor |
 
 ### Temperature Chart
 
-Evolutia temperaturilor in timp:
-- **Linie albastra** - Sensor A (primar)
-- **Linie mov** - Sensor B (secundar)
-- **Banda verde** - Interval sigur (2-8°C)
-- **Rosu/Portocaliu** - Excursii in afara intervalului
+Temperature evolution over time:
+- **Blue line** - Sensor A (primary)
+- **Purple line** - Sensor B (secondary)
+- **Green band** - Safe range (2-8°C)
+- **Red/Orange** - Excursions outside range
 
-**Functionalitati:**
-- Drag pentru a zoom-a pe anumite intervale
-- Click pe legenda pentru a arata/ascunde senzori
-- Hover pe puncte pentru a vedea valoarea exacta
+**Features:**
+- Drag to zoom on specific ranges
+- Click on legend to show/hide sensors
+- Hover on points to see exact value

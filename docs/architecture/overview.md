@@ -1,39 +1,39 @@
-# Overview Arhitectural
+# Architectural Overview
 
 MED-THERM
 
 ---
 
-## Arhitectura Generala
+## General Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    ARHITECTURA MED-THERM                     │
+│                    MED-THERM ARCHITECTURE                          │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                         │
-│  Frontend (React 18 + TypeScript + Vite)                        │
-│       │                                                        │
-│       │ HTTP/HTTPS (TanStack Query)                             │
-│       ▼                                                        │
-│  Backend (FastAPI + Python 3.12)                                  │
-│       │                                                        │
-│       ├──► Log Parser                                       │
-│       ├──► Regulatory Engine (21 de reguli)                       │
-│       └──► AI Integration (ModelArk)                              │
-│       │                                                        │
-│       │ SQLAlchemy ORM + asyncpg)                                │
-│       ▼                                                        │
-│  PostgreSQL 16)                                              │
-│                                                         │
+│                                                                     │
+│  Frontend (React 18 + TypeScript + Vite)                            │
+│       │                                                             │
+│       │ HTTP/HTTPS (TanStack Query)                                  │
+│       ▼                                                             │
+│  Backend (FastAPI + Python 3.12)                                     │
+│       │                                                             │
+│       ├──► Log Parser                                              │
+│       ├──► Regulatory Engine (21 rules)                            │
+│       └──► AI Integration (ModelArk)                               │
+│       │                                                             │
+│       │ SQLAlchemy ORM + asyncpg                                    │
+│       ▼                                                             │
+│  PostgreSQL 16                                                       │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Tehnologii Folosite
+## Technologies Used
 
-| Componenta | Tehnologie | Versiune |
-|-------------|-------------|----------|
+| Component | Technology | Version |
+|-----------|------------|---------|
 | Frontend | React | 18 |
 | Frontend | TypeScript | 5.x |
 | Frontend | Vite | 5.x |
@@ -44,16 +44,16 @@ MED-THERM
 | Backend | FastAPI | - |
 | Backend | Python | 3.12 |
 | Backend | SQLAlchemy | - |
-| Baza de date | PostgreSQL | 16 |
+| Database | PostgreSQL | 16 |
 | AI | ModelArk API | - |
 | DevOps | Docker, Docker Compose | - |
 
 ---
 
-## Flow de Lucru
+## Workflow
 
 ```
-User upload fisier (.txt / .png / .jpg)
+User uploads file (.txt / .png / .jpg)
        │
        ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -88,16 +88,16 @@ User upload fisier (.txt / .png / .jpg)
 
 ---
 
-## Categorii de Reguli
+## Rule Categories
 
-| Cod | Descriere | Numar Reguli |
-|-----|-----------|---------------|
-| TEMP | Controlul temperaturii | 4 |
-| SENS | Senzori | 3 |
-| ALARM | Alarme | 3 |
-| DATA | Date | 3 |
-| POWER | Alimentare | 2 |
-| COOL | Răcire | 2 |
-| INS | Insulatie | 2 |
-| OPS | Operatiuni | 2 |
-| **Total** | **8 categorii** | **21 reguli** |
+| Code | Description | Number of Rules |
+|------|-------------|-----------------|
+| TEMP | Temperature control | 4 |
+| SENS | Sensors | 3 |
+| ALARM | Alarms | 3 |
+| DATA | Data integrity | 3 |
+| POWER | Power system | 2 |
+| COOL | Cooling | 2 |
+| INS | Insulation | 2 |
+| OPS | Operations | 2 |
+| **Total** | **8 categories** | **21 rules** |

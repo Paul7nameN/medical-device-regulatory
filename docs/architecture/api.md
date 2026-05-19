@@ -1,32 +1,33 @@
 # API Documentation
 
-## Acces la documentatia interactiva
+## Access Interactive Documentation
 
 - Swagger UI: http://localhost:8000/docs
+
 - ReDoc: http://localhost:8000/redoc
 
 ---
 
-## Endpoint-uri Principale
+## Main Endpoints
 
-| Endpoint | Metoda | Descriere |
-|----------|---------|-----------|
-| `/api/health` | GET | Verifica daca serviciul ruleaza |
-| `/api/health/db` | GET | Verifica conexiunea la BD |
-| `/api/health/rules` | GET | Lista toate regulile incarcate |
-| `/api/logs/ingest` | POST | Incarca fisiere de log |
-| `/api/logs` | GET | Lista log-urile |
-| `/api/validate` | POST | Ruleaza validarea regulatorie |
-| `/api/validate/quick-test` | GET | Test rapid cu date preconfigurate |
-| `/api/ai/models` | GET | Modele AI disponibile |
-| `/api/ai/analyze-chart` | POST | Analizeaza un chart (AI) |
-| `/api/ai/analyze-logs` | POST | Analizeaza log-uri (AI) |
-| `/api/ai/generate-report` | POST | Genereaza raport AI |
-| `/api/reports/generate` | POST | Genereaza un raport de conformitate |
-| `/api/reports` | GET | Lista rapoartele |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Check if service is running |
+| `/api/health/db` | GET | Check database connection |
+| `/api/health/rules` | GET | List all loaded rules |
+| `/api/logs/ingest` | POST | Upload log files |
+| `/api/logs` | GET | List logs |
+| `/api/validate` | POST | Run regulatory validation |
+| `/api/validate/quick-test` | GET | Quick test with pre-configured data |
+| `/api/ai/models` | GET | Available AI models |
+| `/api/ai/analyze-chart` | POST | Analyze a chart (AI) |
+| `/api/ai/analyze-logs` | POST | Analyze logs (AI) |
+| `/api/ai/generate-report` | POST | Generate AI report |
+| `/api/reports/generate` | POST | Generate a compliance report |
+| `/api/reports` | GET | List reports |
 
 ---
 
-## Exemplu Rapid
+## Quick Example
 
-Pentru detalii complete, vezi Swagger UI la rulare.
+For complete details, see Swagger UI when running.
