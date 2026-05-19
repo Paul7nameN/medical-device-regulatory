@@ -5,6 +5,7 @@ import type {
   AIAnalysisResult,
   ChatRequest,
   ChatResponse,
+  AIResponse,
 } from './types'
 
 export interface AnalysisSessionListItem {
@@ -196,15 +197,42 @@ export const validationApi = {
   },
 }
 
+function handleAIResponse<T>(response: AIResponse<T>): T {
+  console.log('🤖 [handleAIResponse] Raw response:', response)
+
+  if (!response.success) {
+    const errorMessage = response.error?.message || 'AI request failed'
+    console.error('🤖 [handleAIResponse] AI returned success=false:', errorMessage)
+    throw {
+      message: errorMessage,
+      status_code: 400,
+      detail: response.error?.error_type,
+    } as ApiError
+  }
+
+  if (!response.result) {
+    console.error('🤖 [handleAIResponse] AI returned success=true but result is null')
+    throw {
+      message: 'AI analysis returned no result',
+      status_code: 500,
+    } as ApiError
+  }
+
+  console.log('🤖 [handleAIResponse] Success! Returning result:', response.result)
+  return response.result
+}
+
 export const aiApi = {
   getModels: async () => {
     return apiClient.get<{ models: string[] }>('/api/ai/models')
   },
   analyzeChart: async (formData: FormData) => {
-    return apiClient.postFormData<ValidationResult>('/api/ai/analyze-chart', formData)
+    const response = await apiClient.postFormData<AIResponse<ValidationResult>>('/api/ai/analyze-chart', formData)
+    return handleAIResponse(response)
   },
   analyzeLogs: async (data: { logs: string }) => {
-    return apiClient.post<ValidationResult>('/api/ai/analyze-logs', data)
+    const response = await apiClient.post<AIResponse<ValidationResult>>('/api/ai/analyze-logs', data)
+    return handleAIResponse(response)
   },
   chat: async (request: ChatRequest) => {
     return apiClient.post<ChatResponse>('/api/ai/chat', request)

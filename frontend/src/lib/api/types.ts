@@ -272,3 +272,16 @@ export interface ChatResponse {
   sources: Record<string, unknown>[]
   suggested_actions: string[]
 }
+
+export interface AIErrorResponse {
+  error_type: string
+  message: string
+  retry_available: boolean
+  retry_after_seconds?: number
+}
+
+export interface AIResponse<TResult> {
+  success: boolean
+  result?: TResult
+  error?: AIErrorResponse
+}

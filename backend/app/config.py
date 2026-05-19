@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     model_chart_analysis: str
     model_text_analysis: str
 
-    modelark_timeout: int = 60
+    modelark_timeout: int = 300
     modelark_max_retries: int = 3
     modelark_retry_delay: float = 1.0
 
