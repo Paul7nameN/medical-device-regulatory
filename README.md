@@ -16,7 +16,7 @@ Sistem de validare a conformitatii regulatorii pentru dispozitive medicale de tr
 ## Quick Start
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Paul7nameN/medical-device-regulatory
 cd medical-device-regulatory
 
 # Cu Docker
