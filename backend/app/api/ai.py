@@ -213,7 +213,7 @@ async def analyze_chart(
             raise AIImageError("No filename provided")
         
         image_format = ModelArkClient.detect_image_format(file.filename)
-         if not image_format:
+        if not image_format:
             logger.warning(
                 "Unsupported image format",
                 extra={"file_name": file.filename}
