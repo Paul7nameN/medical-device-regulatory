@@ -1,7 +1,6 @@
 import type {
   ApiError,
   ValidationResult,
-  AnalysisSession,
   AIAnalysisResult,
   ChatRequest,
   ChatResponse,
