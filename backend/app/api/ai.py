@@ -183,7 +183,7 @@ async def analyze_chart(
     request_start = datetime.now()
     request_log = {
         "endpoint": "/api/ai/analyze-chart",
-        "filename": file.filename,
+        "file_name": file.filename,
         "device_id": device_id,
         "ai_enabled": settings.ai_enabled
     }
@@ -213,10 +213,10 @@ async def analyze_chart(
             raise AIImageError("No filename provided")
         
         image_format = ModelArkClient.detect_image_format(file.filename)
-        if not image_format:
+         if not image_format:
             logger.warning(
                 "Unsupported image format",
-                extra={"filename": file.filename}
+                extra={"file_name": file.filename}
             )
             raise AIImageError(
                 "Unsupported image format. Only PNG and JPG/JPEG are supported."
