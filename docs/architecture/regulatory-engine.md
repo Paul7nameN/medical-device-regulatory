@@ -10,7 +10,7 @@ This module serves as the core validation engine for the MED-THERM Compliance Pl
 
 1. **Parses** raw device logs into structured data
 2. **Normalizes** and validates log sequences
-3. **Applies** 25 regulatory rules across 8 categories
+3. **Applies** 21 regulatory rules across 8 categories
 4. **Generates** structured compliance reports with severity classification
 5. **Provides** FastAPI endpoints for integration with frontend systems
 
@@ -46,7 +46,7 @@ This module serves as the core validation engine for the MED-THERM Compliance Pl
 │  │        │                │                │                │   │
 │  │        ▼                ▼                ▼                │   │
 │  │  ┌─────────────────────────────────────────────────────┐       │   │
-│  │  │              Rule Registry (25 rules)             │       │   │
+│  │  │              Rule Registry (21 rules)             │       │   │
 │  │  │                                                       │       │   │
 │  │  │  ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ │       │   │
 │  │  │  │TEMP│ │SENS│ │ALRM│ │DATA│ │... │       │   │
@@ -61,7 +61,7 @@ This module serves as the core validation engine for the MED-THERM Compliance Pl
 
 ## MED-THERM-2026 Rule Mapping
 
-The engine implements all 25 MED-THERM-2026 regulatory rules organized into 8 categories:
+The engine implements all 21 MED-THERM-2026 regulatory rules organized into 8 categories:
 
 ### 1. Thermal Safety (REG-TEMP 1-4)
 
@@ -219,7 +219,7 @@ Health check endpoint.
   "status": "healthy",
   "app_name": "MED-THERM Compliance Engine",
   "app_version": "0.1.0",
-  "rules_loaded": 25,
+  "rules_loaded": 21,
   "categories": ["thermal", "sensor", "alarm", "data", "power", "cooling", "insulation", "operational"],
   "debug": true
 }
@@ -232,7 +232,7 @@ List all registered rules.
 **Response:**
 ```json
 {
-  "total": 25,
+  "total": 21,
   "rules": [
     {
       "rule_id": "REG-TEMP-1",

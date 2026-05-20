@@ -24,12 +24,115 @@
 | `/api/ai/analyze-chart` | POST | Analyze a chart (AI) |
 | `/api/ai/analyze-logs` | POST | Analyze logs (AI) |
 | `/api/ai/generate-report` | POST | Generate AI report |
+| `/api/multimodal/analyze` | POST | Start multi-modal analysis (logs + charts + constraints) |
+| `/api/multimodal/status/{session_id}` | GET | Poll multi-modal analysis status |
+| `/api/multimodal/results/{session_id}` | GET | Get multi-modal analysis results |
 | `/api/reports/generate` | POST | Generate a compliance report |
 | `/api/reports` | GET | List reports |
 | `/api/analysis` | GET | List analysis sessions |
 | `/api/analysis/{id}` | GET | Get analysis session detail |
 | `/api/analysis/{id}` | DELETE | Delete analysis session |
 | `/api/analysis/all` | DELETE | Delete all analysis sessions |
+
+---
+
+## Multi-Modal Analysis Endpoints (New)
+
+### POST `/api/multimodal/analyze` (FormData)
+
+Start a unified multi-modal analysis that combines log files, chart images, and optional constraints documents.
+
+**FormData Fields:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `log_files` | binary[] | No | Log files (.txt) |
+| `chart_images` | binary[] | No | Chart images (.png, .jpg) |
+| `constraints_docs` | binary[] | No | Constraints documents for rule extraction |
+| `options_json` | string | No | Analysis options as JSON (see below) |
+
+**Options JSON Structure:**
+```json
+{
+  "merge_logs": true,
+  "extract_rules": true,
+  "align_charts": true,
+  "correlate_findings": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "session_id": "uuid-session-id",
+  "status": "pending",
+  "message": "Analysis queued...",
+  "estimated_time_seconds": 30
+}
+```
+
+---
+
+### GET `/api/multimodal/status/{session_id}`
+
+Poll the status of an ongoing multi-modal analysis.
+
+**Response (In Progress):**
+```json
+{
+  "success": true,
+  "session_id": "uuid-session-id",
+  "status": "processing",
+  "progress": 0.4,
+  "current_step": "Analyzing chart images",
+  "steps_total": 6,
+  "message": null
+}
+```
+
+**Response (Completed):**
+```json
+{
+  "success": true,
+  "session_id": "uuid-session-id",
+  "status": "completed",
+  "progress": 1.0,
+  "current_step": "Completed",
+  "steps_total": 6,
+  "message": null
+}
+```
+
+---
+
+### GET `/api/multimodal/results/{session_id}`
+
+Get the final results of a completed multi-modal analysis.
+
+**Response:**
+```json
+{
+  "success": true,
+  "session_id": "uuid-session-id",
+  "report": {
+    "device_id": "multi-modal-analysis",
+    "analyzed_at": "2026-05-20T10:30:00",
+    "total_entries": 1000,
+    "passed_count": 18,
+    "failed_count": 3,
+    "critical_count": 1,
+    "findings": [...],
+    "data_sources": [...],
+    "alignment_uncertain": false,
+    "_correlation": {
+      "correlated_findings": [...],
+      "conflicting_findings": [...],
+      "summary": {...}
+    }
+  },
+  "error": null
+}
+```
 
 ---
 
