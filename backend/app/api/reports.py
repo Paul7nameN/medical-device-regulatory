@@ -16,8 +16,24 @@ from app.database import get_async_db
 from app.services.persistence import PersistenceService
 from app.ai.analyst.engine import AIAnalystEngine
 
+try:
+    from app.models.dynamic_rules import ExtractedRule
+    DYNAMIC_RULES_AVAILABLE = True
+except ImportError:
+    DYNAMIC_RULES_AVAILABLE = False
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+class RulesetMetaInput(BaseModel):
+    source: str = "extracted"
+    filename: Optional[str] = None
+    extracted_at: Optional[str] = None
+    model_used: Optional[str] = None
+    rule_count: int = 0
+    average_confidence: Optional[float] = None
+    ruleset_name: Optional[str] = None
 
 
 class GenerateReportRequest(BaseModel):
@@ -27,6 +43,9 @@ class GenerateReportRequest(BaseModel):
     filter_rules: Optional[List[str]] = None
     include_ai_analysis: bool = False
     include_raw_report: bool = False
+    extracted_rules: Optional[List[Dict[str, Any]]] = None
+    ruleset_meta: Optional[RulesetMetaInput] = None
+    merge_with_default_rules: bool = False
 
 
 class GenerateReportResponse(BaseModel):
@@ -85,11 +104,24 @@ async def generate_compliance_summary(
                 detail="No valid log entries provided. Include 'raw_logs' or 'entries'."
             )
         
+        def _parse_rules_for_summary(rules_data: Optional[List[Dict[str, Any]]]) -> Optional[List[Any]]:
+            if not rules_data or not DYNAMIC_RULES_AVAILABLE:
+                return None
+            try:
+                from app.models.dynamic_rules import ExtractedRule
+                return [ExtractedRule(**r) for r in rules_data if isinstance(r, dict)]
+            except Exception:
+                return None
+        
+        extracted_rules = _parse_rules_for_summary(request.extracted_rules)
+        
         engine = RegulatoryEngine()
         base_report = engine.validate(
             logs=entries,
             filter_rules=request.filter_rules,
-            device_id=request.device_id
+            device_id=request.device_id,
+            rule_set=extracted_rules,
+            merge_with_default=request.merge_with_default_rules,
         )
         
         aggregator = ComplianceReportAggregator()
@@ -151,6 +183,23 @@ async def generate_compliance_report(
     - REG-SENS-1: Dual sensor timeout = CRITICAL
     - REG-ALARM-1: Delayed alarm activation
     """
+    def _parse_extracted_rules(rules_data: Optional[List[Dict[str, Any]]]) -> Optional[List[Any]]:
+        if not rules_data or not DYNAMIC_RULES_AVAILABLE:
+            return None
+        
+        try:
+            from app.models.dynamic_rules import ExtractedRule
+            parsed_rules = []
+            for rule_dict in rules_data:
+                try:
+                    rule = ExtractedRule(**rule_dict)
+                    parsed_rules.append(rule)
+                except Exception:
+                    pass
+            return parsed_rules if parsed_rules else None
+        except Exception:
+            return None
+
     try:
         entries: List[Any] = []
         
@@ -188,22 +237,43 @@ async def generate_compliance_report(
                 detail="No valid log entries provided. Include 'raw_logs' or 'entries'."
             )
         
+        extracted_rules = _parse_extracted_rules(request.extracted_rules)
+        
         engine = RegulatoryEngine()
         base_report = engine.validate(
             logs=entries,
             filter_rules=request.filter_rules,
-            device_id=request.device_id
+            device_id=request.device_id,
+            rule_set=extracted_rules,
+            merge_with_default=request.merge_with_default_rules,
         )
+        
+        config_dict: Dict[str, Any] = {
+            "filter_rules": request.filter_rules,
+            "include_raw_report": request.include_raw_report,
+            "merge_with_default_rules": request.merge_with_default_rules,
+        }
+        
+        if request.extracted_rules:
+            config_dict["_extracted_rules"] = request.extracted_rules
+        
+        if request.ruleset_meta:
+            config_dict["_ruleset_meta"] = {
+                "source": request.ruleset_meta.source,
+                "filename": request.ruleset_meta.filename,
+                "extracted_at": request.ruleset_meta.extracted_at,
+                "model_used": request.ruleset_meta.model_used,
+                "rule_count": request.ruleset_meta.rule_count,
+                "average_confidence": request.ruleset_meta.average_confidence,
+                "ruleset_name": request.ruleset_meta.ruleset_name or "Custom Rules",
+            }
         
         persistence = PersistenceService(db)
         session = await persistence.save_analysis_session(
             device_id=request.device_id,
             logs=entries,
             report=base_report,
-            config={
-                "filter_rules": request.filter_rules,
-                "include_raw_report": request.include_raw_report,
-            },
+            config=config_dict,
             raw_logs=request.raw_logs,
         )
         

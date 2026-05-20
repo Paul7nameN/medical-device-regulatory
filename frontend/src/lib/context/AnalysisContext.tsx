@@ -5,16 +5,28 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   type ReactNode,
 } from 'react'
-import type { ValidationResult, AIAnalysisResult } from '@/lib/api'
-import { validationApi, type AnalysisSessionListItem } from '@/lib/api'
-import type { TemperatureDataPoint } from '@/components/TemperatureChart'
+import type {
+  ValidationResult,
+  AIAnalysisResult,
+  ExtractedRule,
+  RulesetMeta,
+  MultiModalStatusResponse,
+  MultiModalResultsResponse,
+} from '@/lib/api'
 import {
-  createEmptySeverityCounts,
-  type SeverityCounts,
-  extractTemperatureFromRawLogs,
-} from '@/lib/utils/transformers'
+  validationApi,
+  multimodalApi,
+  type AnalysisSessionListItem,
+} from '@/lib/api'
+import type { TemperatureDataPoint } from '@/components/TemperatureChart'
+ import {
+   createEmptySeverityCounts,
+   type SeverityCounts,
+   extractTemperatureFromRawLogs,
+ } from '@/lib/utils/transformers'
 
 const HISTORY_STORAGE_KEY = 'med-therm-analysis-history'
 const ACTIVE_INDEX_STORAGE_KEY = 'med-therm-active-index'
@@ -28,6 +40,10 @@ export interface LatestAnalysis {
   isPartial?: boolean
   analysisSessionId?: string
   aiAnalysis?: AIAnalysisResult
+  hasCustomRules?: boolean
+  rulesetName?: string
+  extractedRules?: ExtractedRule[]
+  rulesetMeta?: RulesetMeta
 }
 
 export interface AnalysisContextType {
@@ -51,6 +67,10 @@ export interface AnalysisContextType {
   removeAnalysis: (index: number) => Promise<void>
   clearHistory: () => Promise<void>
   refreshHistory: () => Promise<void>
+  batchSessionId: string | null
+  batchStatus: MultiModalStatusResponse | null
+  startBatchAnalysis: (sessionId: string) => void
+  stopBatchAnalysis: () => void
 }
 
 function isValidAnalysis(data: unknown): data is LatestAnalysis {
@@ -168,24 +188,22 @@ interface BackendLatestAnalysisData {
 function backendItemToLatestAnalysis(
   item: AnalysisSessionListItem
 ): LatestAnalysis | null {
-  const itemRecord = item as Record<string, unknown>
-  const sessionId = (itemRecord.id as string) || undefined
-  const data = itemRecord.latest_analysis_data as
-    | BackendLatestAnalysisData
-    | undefined
-  const aiAnalysis = itemRecord.ai_analysis as AIAnalysisResult | undefined
+  const sessionId = item.id
+  const data = item.latest_analysis_data as BackendLatestAnalysisData | undefined
+  const aiAnalysis = item.ai_analysis
+  
+  const hasCustomRules = item.has_custom_rules
+  const rulesetName = item.ruleset_name
+  const extractedRulesRaw = item.extracted_rules
+  const rulesetMetaRaw = item.ruleset_meta
+
+  const extractedRules = extractedRulesRaw ? (extractedRulesRaw as unknown as ExtractedRule[]) : undefined
+  const rulesetMeta = rulesetMetaRaw ? (rulesetMetaRaw as unknown as RulesetMeta) : undefined
 
   console.log('🔍 backendItemToLatestAnalysis: item=', item)
   console.log('🔍 ai_analysis found:', aiAnalysis ? 'YES' : 'NO')
-  if (aiAnalysis) {
-    console.log('🔍 ai_analysis details:', {
-      hasRiskOverview: !!aiAnalysis.session_risk_overview,
-      insightsCount: aiAnalysis.insights?.length || 0,
-      predictionsCount: aiAnalysis.predictions?.length || 0,
-      hasActionPlan: !!aiAnalysis.action_plan,
-      hasSummary: !!aiAnalysis.natural_language_summary,
-    })
-  }
+  console.log('🔍 hasCustomRules:', hasCustomRules, 'rulesetName:', rulesetName)
+  console.log('🔍 extractedRules count:', extractedRules?.length || 0)
 
   if (data) {
     console.log('✅ Converting analysis from backend (full):', data)
@@ -206,14 +224,18 @@ function backendItemToLatestAnalysis(
       temperatureData: tempData,
       analysisSessionId: sessionId,
       aiAnalysis: aiAnalysis,
+      hasCustomRules,
+      rulesetName,
+      extractedRules,
+      rulesetMeta,
     }
   }
 
   console.log('⚠️ backendItemToLatestAnalysis: missing latest_analysis_data, creating partial analysis, item=', item)
   
-  const deviceId = (itemRecord.device_name as string) || 'unknown-device'
-  const analyzedAt = (itemRecord.created_at as string) || new Date().toISOString()
-  const violationCount = (itemRecord.violation_count as number) || 0
+  const deviceId = item.device_name || 'unknown-device'
+  const analyzedAt = item.created_at || new Date().toISOString()
+  const violationCount = item.violation_count || 0
 
   const partialValidationResult: ValidationResult = {
     device_id: deviceId,
@@ -235,6 +257,10 @@ function backendItemToLatestAnalysis(
     isPartial: true,
     analysisSessionId: sessionId,
     aiAnalysis: aiAnalysis,
+    hasCustomRules,
+    rulesetName,
+    extractedRules,
+    rulesetMeta,
   }
 }
 
@@ -246,9 +272,14 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [retryAction, setRetryAction] = useState<(() => void) | null>(null)
+   const [retryAction, setRetryAction] = useState<(() => void) | null>(null)
 
-  const refreshHistory = useCallback(async () => {
+   const [batchSessionId, setBatchSessionId] = useState<string | null>(null)
+   const [batchStatus, setBatchStatus] = useState<MultiModalStatusResponse | null>(null)
+   const batchPollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+   const batchSessionIdRef = useRef<string | null>(null)
+
+   const refreshHistory = useCallback(async () => {
     console.log('🔄 refreshHistory: loading from database (single source of truth)...')
     setIsLoadingHistory(true)
     setRetryAction(null)
@@ -297,9 +328,93 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoadingHistory(false)
     }
-  }, [])
+   }, [])
 
-  const clampedIndex = useMemo(() => {
+   const stopBatchAnalysis = useCallback(() => {
+     console.log('🛑 [batch] Stopping batch analysis polling')
+     if (batchPollingRef.current) {
+       clearInterval(batchPollingRef.current)
+       batchPollingRef.current = null
+     }
+     batchSessionIdRef.current = null
+     setBatchSessionId(null)
+     setBatchStatus(null)
+     setIsAnalyzing(false)
+   }, [])
+
+   const startBatchAnalysis = useCallback((sessionId: string) => {
+     console.log('🚀 [batch] Starting batch analysis polling for session:', sessionId)
+
+     stopBatchAnalysis()
+
+     batchSessionIdRef.current = sessionId
+     setBatchSessionId(sessionId)
+     setIsAnalyzing(true)
+     setError(null)
+
+     const pollStatus = async () => {
+       const currentSessionId = batchSessionIdRef.current
+       if (!currentSessionId) return
+
+       try {
+         console.log('📊 [batch poll] Checking status for:', currentSessionId)
+         const status = await multimodalApi.getStatus(currentSessionId)
+         setBatchStatus(status)
+
+         console.log('📊 [batch poll] Status:', status.status, 'Progress:', status.progress)
+
+         if (status.status === 'completed' || status.status === 'failed') {
+           stopBatchAnalysis()
+
+           if (status.status === 'completed') {
+             try {
+               const results = await multimodalApi.getResults(currentSessionId)
+
+               if (results.success && results.report) {
+                 console.log('✅ [batch poll] Analysis complete!')
+                 await refreshHistory()
+                 setActiveAnalysisIndex(0)
+               } else {
+                 setError(results.error || 'Analysis completed but no results available')
+               }
+             } catch (resultError) {
+               console.error('❌ [batch poll] Failed to get results:', resultError)
+               const errorMessage =
+                 resultError instanceof Error
+                   ? resultError.message
+                   : 'Failed to retrieve results'
+               setError(errorMessage)
+             }
+           } else if (status.status === 'failed') {
+             setError(status.message || 'Batch analysis failed')
+           }
+         }
+       } catch (pollError: unknown) {
+         console.error('❌ [batch poll] Status check failed:', pollError)
+         const errorMessage =
+           pollError instanceof Error
+             ? pollError.message
+             : typeof pollError === 'object' && pollError !== null && 'message' in pollError
+               ? String((pollError as { message: string }).message)
+               : 'Status check failed'
+         setError(errorMessage)
+         stopBatchAnalysis()
+       }
+     }
+
+     pollStatus()
+     batchPollingRef.current = setInterval(pollStatus, 2000)
+   }, [stopBatchAnalysis, refreshHistory])
+
+   useEffect(() => {
+     return () => {
+       if (batchPollingRef.current) {
+         clearInterval(batchPollingRef.current)
+       }
+     }
+   }, [])
+
+   const clampedIndex = useMemo(() => {
     // -1 înseamnă "nicio analiză activă" - valoare specială setată de butonul "Clear"
     if (activeAnalysisIndex === -1) return -1
     
@@ -439,6 +554,10 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
         removeAnalysis,
         clearHistory,
         refreshHistory,
+        batchSessionId,
+        batchStatus,
+        startBatchAnalysis,
+        stopBatchAnalysis,
       }}
     >
       {children}

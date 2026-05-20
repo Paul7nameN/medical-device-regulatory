@@ -11,8 +11,10 @@ from app.ai.text.models import (
 from app.ai.text.prompts import (
     SYSTEM_PROMPT_LOG_ANALYSIS,
     SYSTEM_PROMPT_REPORT_GENERATION,
+    SYSTEM_PROMPT_RULE_EXTRACTION,
     LOG_ANALYSIS_USER_PROMPT_TEMPLATE,
-    REPORT_GENERATION_USER_PROMPT_TEMPLATE
+    REPORT_GENERATION_USER_PROMPT_TEMPLATE,
+    USER_PROMPT_RULE_EXTRACTION_TEMPLATE,
 )
 from app.config import settings
 
@@ -137,6 +139,63 @@ class TextAnalyzer:
             conclusion=str(parsed.get("conclusion", "")),
             raw_response=response
         )
+    
+    async def extract_rules(
+        self,
+        document_text: str,
+        filename: Optional[str] = None
+    ) -> Dict[str, Any]:
+        if not settings.ai_enabled:
+            raise AIValidationError(
+                "AI analysis is not enabled. Set MODELARK_API_KEY environment variable."
+            )
+        
+        start_time = datetime.now()
+        
+        user_prompt = USER_PROMPT_RULE_EXTRACTION_TEMPLATE.format(
+            document_text=document_text,
+            filename=filename or "unknown-document"
+        )
+        
+        response = await self.client.analyze_text(
+            prompt=user_prompt,
+            system_prompt=SYSTEM_PROMPT_RULE_EXTRACTION
+        )
+        
+        content = self._extract_response_content(response)
+        rules_data = ModelArkClient.parse_json_response(content)
+        
+        duration = (datetime.now() - start_time).total_seconds()
+        
+        rules_list = []
+        if isinstance(rules_data, list):
+            rules_list = rules_data
+        elif isinstance(rules_data, dict):
+            possible_keys = ["rules", "extracted_rules", "result", "data"]
+            for key in possible_keys:
+                if key in rules_data and isinstance(rules_data[key], list):
+                    rules_list = rules_data[key]
+                    break
+        
+        if rules_list:
+            avg_confidence = sum(
+                r.get("confidence", 0.5) for r in rules_list if isinstance(r, dict)
+            ) / len(rules_list)
+        else:
+            avg_confidence = 0.0
+        
+        return {
+            "success": True,
+            "rules": rules_list,
+            "meta": {
+                "extracted_at": datetime.now(),
+                "model_used": settings.model_text_analysis,
+                "average_confidence": round(avg_confidence, 2),
+                "rule_count": len(rules_list)
+            },
+            "raw_response": response,
+            "duration_seconds": duration
+        }
     
     def _extract_response_content(self, response: Dict[str, Any]) -> str:
         try:

@@ -5,6 +5,7 @@ export {
   aiApi,
   reportsApi,
   healthApi,
+  multimodalApi,
 } from './client'
 export type {
   AnalysisSessionListItem,
@@ -17,5 +18,8 @@ export type {
   LogListItem,
   LogListResponse,
   DbHealthResponse,
+  RulesetMetaInput,
+  GenerateReportFromLogsRequest,
+  ExtractRulesResult,
 } from './client'
 export * from './types'

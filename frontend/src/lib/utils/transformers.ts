@@ -66,6 +66,8 @@ export function findingsToDetectedViolations(findings: Finding[]): DetectedViola
       evidence: finding.evidence as Evidence[],
       detected_at: finding.timestamp || new Date().toISOString(),
       created_at: new Date().toISOString(),
+      data_source: finding.data_source,
+      confidence: finding.confidence,
     }
   })
 }

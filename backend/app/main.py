@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.config import settings
-from app.api import health, logs, validate, ai, reports
+from app.api import health, logs, validate, ai, reports, multimodal
 
 from app.regulatory.rules import (
     RegTemp1, RegTemp2, RegTemp3, RegTemp4,
@@ -79,6 +79,7 @@ app.include_router(logs.router, prefix="/api", tags=["Logs"])
 app.include_router(validate.router, prefix="/api", tags=["Validation"])
 app.include_router(ai.router, prefix="/api", tags=["AI Analysis"])
 app.include_router(reports.router, prefix="/api", tags=["Reports"])
+app.include_router(multimodal.router, prefix="/api", tags=["Multi-Modal Analysis"])
 
 
 @app.get("/")
@@ -101,6 +102,9 @@ async def root():
         endpoints["ai_analyze_chart"] = "/api/ai/analyze-chart"
         endpoints["ai_analyze_logs"] = "/api/ai/analyze-logs"
         endpoints["ai_generate_report"] = "/api/ai/generate-report"
+        endpoints["multimodal_analyze"] = "/api/multimodal/analyze"
+        endpoints["multimodal_status"] = "/api/multimodal/status/{id}"
+        endpoints["multimodal_results"] = "/api/multimodal/results/{id}"
     
     return {
         "name": settings.app_name,

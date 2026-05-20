@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Type, Union
+from typing import List, Dict, Any, Optional, Type, Union, Tuple
 from datetime import datetime
 from collections import defaultdict
 
@@ -6,6 +6,18 @@ from app.models.logs import LogEntry
 from app.models.findings import Finding, ComplianceReport, CategorySummary, Severity
 from app.regulatory.rules.base import RuleRegistry, BaseRule, ValidationSource
 from app.regulatory.normalizer import LogNormalizer
+
+try:
+    from app.models.dynamic_rules import ExtractedRule
+    from app.regulatory.dynamic_evaluator import (
+        DynamicRuleEvaluator,
+        filter_executable_rules,
+        CONFIDENCE_THRESHOLD_AUTO_EXECUTE,
+    )
+    DYNAMIC_EVALUATOR_AVAILABLE = True
+except ImportError:
+    DYNAMIC_EVALUATOR_AVAILABLE = False
+    ExtractedRule = Any
 
 
 class RegulatoryEngine:
@@ -29,7 +41,9 @@ class RegulatoryEngine:
         filter_rules: Optional[List[str]] = None,
         device_id: str = "unknown",
         include_sources: Optional[List[Union[ValidationSource, str]]] = None,
-        exclude_sources: Optional[List[Union[ValidationSource, str]]] = None
+        exclude_sources: Optional[List[Union[ValidationSource, str]]] = None,
+        rule_set: Optional[List[ExtractedRule]] = None,
+        merge_with_default: bool = False,
     ) -> ComplianceReport:
         if not logs:
             return self._create_empty_report(device_id)
@@ -53,35 +67,44 @@ class RegulatoryEngine:
 
         all_findings: List[Finding] = []
 
-        for category in self.RULE_ORDER:
-            rules = RuleRegistry.get_by_category(category)
+        use_default_rules = True
+        if rule_set is not None and DYNAMIC_EVALUATOR_AVAILABLE:
+            use_default_rules = merge_with_default
+            dynamic_findings = self._validate_with_dynamic_rules(
+                rule_set, sorted_logs, context
+            )
+            all_findings.extend(dynamic_findings)
 
-            for rule_class in rules:
-                if filter_rules and rule_class.rule_id not in filter_rules:
-                    continue
+        if use_default_rules:
+            for category in self.RULE_ORDER:
+                rules = RuleRegistry.get_by_category(category)
 
-                if include_sources_enum and rule_class.data_source not in include_sources_enum:
-                    continue
+                for rule_class in rules:
+                    if filter_rules and rule_class.rule_id not in filter_rules:
+                        continue
 
-                if exclude_sources_enum and rule_class.data_source in exclude_sources_enum:
-                    continue
+                    if include_sources_enum and rule_class.data_source not in include_sources_enum:
+                        continue
 
-                rule_instance = rule_class()
-                try:
-                    findings = rule_instance.validate(sorted_logs, context)
-                    all_findings.extend(findings)
-                except Exception as e:
-                    error_finding = Finding(
-                        rule_id=rule_class.rule_id,
-                        rule_description=rule_class.description,
-                        category=category,
-                        severity=Severity.MEDIUM,
-                        passed=False,
-                        message=f"Rule execution error: {str(e)}",
-                        evidence=[],
-                        timestamp=datetime.now()
-                    )
-                    all_findings.append(error_finding)
+                    if exclude_sources_enum and rule_class.data_source in exclude_sources_enum:
+                        continue
+
+                    rule_instance = rule_class()
+                    try:
+                        findings = rule_instance.validate(sorted_logs, context)
+                        all_findings.extend(findings)
+                    except Exception as e:
+                        error_finding = Finding(
+                            rule_id=rule_class.rule_id,
+                            rule_description=rule_class.description,
+                            category=category,
+                            severity=Severity.MEDIUM,
+                            passed=False,
+                            message=f"Rule execution error: {str(e)}",
+                            evidence=[],
+                            timestamp=datetime.now()
+                        )
+                        all_findings.append(error_finding)
 
         return self._create_report(
             findings=all_findings,
@@ -89,6 +112,45 @@ class RegulatoryEngine:
             context=context,
             device_id=device_id
         )
+
+    def _validate_with_dynamic_rules(
+        self,
+        rule_set: List[ExtractedRule],
+        logs: List[LogEntry],
+        context: Dict[str, Any]
+    ) -> List[Finding]:
+        if not DYNAMIC_EVALUATOR_AVAILABLE:
+            return []
+        
+        evaluator = DynamicRuleEvaluator()
+        
+        executable, needs_review = filter_executable_rules(rule_set)
+        
+        all_findings: List[Finding] = []
+        
+        for rule in executable:
+            try:
+                findings = evaluator.validate(rule, logs, context)
+                all_findings.extend(findings)
+            except Exception as e:
+                error_finding = Finding(
+                    rule_id=rule.id,
+                    rule_description=rule.description,
+                    category=rule.category,
+                    severity=Severity.MEDIUM,
+                    passed=False,
+                    message=f"Dynamic rule execution error: {str(e)}",
+                    evidence=[],
+                    timestamp=datetime.now(),
+                    confidence=rule.confidence,
+                )
+                all_findings.append(error_finding)
+        
+        for rule in needs_review:
+            findings = evaluator.validate(rule, logs, context)
+            all_findings.extend(findings)
+        
+        return all_findings
 
     def _create_empty_report(self, device_id: str) -> ComplianceReport:
         return ComplianceReport(
@@ -190,7 +252,12 @@ def validate_logs(
     filter_rules: Optional[List[str]] = None,
     device_id: str = "unknown",
     include_sources: Optional[List[Union[ValidationSource, str]]] = None,
-    exclude_sources: Optional[List[Union[ValidationSource, str]]] = None
+    exclude_sources: Optional[List[Union[ValidationSource, str]]] = None,
+    rule_set: Optional[List[ExtractedRule]] = None,
+    merge_with_default: bool = False,
 ) -> ComplianceReport:
     engine = RegulatoryEngine()
-    return engine.validate(logs, filter_rules, device_id, include_sources, exclude_sources)
+    return engine.validate(
+        logs, filter_rules, device_id, include_sources, exclude_sources,
+        rule_set=rule_set, merge_with_default=merge_with_default
+    )

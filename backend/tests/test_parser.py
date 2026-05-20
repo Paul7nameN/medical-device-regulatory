@@ -114,7 +114,7 @@ class TestLogParser:
         line = "2026-05-14 14:00:10 UNKNOWN_TYPE some value"
         entry = parser.parse_line(line)
         assert entry is None
-        assert len(parser.warnings) >= 1
+        assert len(parser.errors) >= 1
 
     def test_cooling_recovery_start(self):
         parser = LogParser()

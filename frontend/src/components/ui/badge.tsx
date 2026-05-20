@@ -91,4 +91,51 @@ function DataSourceBadge({
   )
 }
 
-export { Badge, SeverityBadge, DataSourceBadge, badgeVariants }
+export interface ConfidenceBadgeProps extends Omit<BadgeProps, 'variant'> {
+  confidence: number
+  showLabel?: boolean
+  breakdown?: {
+    log?: number
+    chart?: number
+    alignment?: number
+  }
+}
+
+function ConfidenceBadge({ 
+  confidence, 
+  showLabel = true,
+  breakdown,
+  className,
+  ...props 
+}: ConfidenceBadgeProps) {
+  const percentage = Math.round(confidence * 100)
+  
+  let variant: BadgeProps['variant'] = 'low'
+  if (percentage < 50) variant = 'critical'
+  else if (percentage < 70) variant = 'high'
+  else if (percentage < 85) variant = 'medium'
+
+  let tooltip = `Confidence: ${percentage}%`
+  if (breakdown) {
+    const parts: string[] = []
+    if (breakdown.log !== undefined) parts.push(`Log: ${Math.round(breakdown.log * 100)}%`)
+    if (breakdown.chart !== undefined) parts.push(`Chart: ${Math.round(breakdown.chart * 100)}%`)
+    if (breakdown.alignment !== undefined) parts.push(`Alignment: ${Math.round(breakdown.alignment * 100)}%`)
+    if (parts.length > 0) {
+      tooltip = `${tooltip} (${parts.join(', ')})`
+    }
+  }
+
+  return (
+    <Badge 
+      variant={variant}
+      className={cn(className)}
+      title={tooltip}
+      {...props}
+    >
+      {showLabel && `${percentage}%`}
+    </Badge>
+  )
+}
+
+export { Badge, SeverityBadge, DataSourceBadge, ConfidenceBadge, badgeVariants }
