@@ -1,43 +1,57 @@
-# MED-THERM Compliance Engine - Documentatie
+# MED-THERM Compliance Engine - Documentation
 
-## Bun venit!
+## Welcome
 
-MED-THERM este un sistem de validare a conformitatii regulatorii pentru dispozitive medicale de transport cu control al temperaturii.
-
----
-
-## Incepe Aici
-- [Ghid de Instalare](getting-started/installation.md)
-- [Configurare](getting-started/configuration.md)
+MED-THERM is a regulatory compliance validation system for temperature-controlled medical device transport.
 
 ---
 
-## Pentru Utilizatori
-- [Ghid de Utilizare](user-guide/README.md)
-- [Exemple Practice](user-guide/examples/)
+## Get Started
+
+- [Installation Guide](getting-started/installation.md) - How to install with Docker
+
+- [Configuration](getting-started/configuration.md) - Environment variables
 
 ---
 
-## Pentru Dezvoltatori
-- [Setup Mediu](developer-guide/setup.md)
-- [Cum rulez testele](developer-guide/testing.md)
-- [Cum adaug reguli noi](developer-guide/adding-rules.md)
+## For Users
+
+- [User Guide](user-guide/README.md) - Complete guide for end users
+
+- [Practical Examples](user-guide/examples/) - Example files and use cases
 
 ---
 
-## Arhitectura
-- [Overview Arhitectural](architecture/overview.md)
-- [Schema BD](architecture/database.md)
-- [Regulatory Engine](architecture/regulatory-engine.md)
-- [API](architecture/api.md)
+## For Developers
+
+- [Environment Setup](developer-guide/setup.md) - How to set up development environment
+
+- [How to Run Tests](developer-guide/testing.md) - Test execution guide
+
+- [How to Add New Rules](developer-guide/adding-rules.md) - Extending the regulatory engine
 
 ---
 
-## Viitorul
-- [Roadmap](roadmap/README.md)
-- [Estimari de Efort](roadmap/effort-estimates.md)
+## Architecture
+
+- [Architectural Overview](architecture/overview.md) - System architecture with diagrams
+
+- [Database Schema](architecture/database.md) - Database design
+
+- [Regulatory Engine](architecture/regulatory-engine.md) - How rules are executed
+
+- [API Documentation](architecture/api.md) - API endpoints
 
 ---
 
-## Istoric
-- [CHANGELOG.md](CHANGELOG.md)
+## Future
+
+- [Roadmap](roadmap/README.md) - Project roadmap
+
+- [Effort Estimates](roadmap/effort-estimates.md) - Development time and resource estimates
+
+---
+
+## History
+
+- [CHANGELOG.md](CHANGELOG.md) - Project history

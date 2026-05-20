@@ -1,9 +1,5 @@
 # Regulatory Engine
 
-> Acest fisier a fost mutat din `docs/regulatory-engine.md`.
-
----
-
 ## Overview
 
 The **Regulatory Engine** is a Python backend module that validates medical device logs against the **MED-THERM-2026** regulatory standard for portable temperature-controlled plasma transport units.

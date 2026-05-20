@@ -1,28 +1,39 @@
 # CHANGELOG
 
-Istoricul tuturor schimbarilor semnificative in proiect.
+History of all significant changes in the project.
 
 ---
 
 ## [Unreleased]
 
-### Adaugat
-- Dark Mode complet cu persistenta si toggle
-- Restructurarea documentatiei conform best practices
-- Custom branding cu logo MED-THERM
+### Added
 
-### Fixat
-- Fixed category inconsistency intre backend si frontend
-- Dezactivate click pe category cards in Overview
+- Dark Mode complete with persistence and toggle
+
+- Documentation restructuring according to best practices
+
+- Custom branding with MED-THERM logo
+
+### Fixed
+
+- Fixed category inconsistency between backend and frontend
+
+- Disabled click on category cards in Overview
 
 ---
 
 ## [1.0.0] - 2026-05-12
 
-### Adaugat
+### Added
+
 - Initial release
-- Regulatory Engine cu 21 de reguli
+
+- Regulatory Engine with 21 rules
+
 - Log Parser
+
 - AI Integration (ModelArk)
+
 - Frontend Dashboard
-- Baza de date PostgreSQL
+
+- PostgreSQL database

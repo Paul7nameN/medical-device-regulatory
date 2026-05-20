@@ -1,8 +1,5 @@
 # Schema Bazei de Date
 
-> Acest fisier a fost mutat din `docs/database-schema-module.md`.
-
----
 
 ## Overview
 

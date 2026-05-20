@@ -1,30 +1,30 @@
-# Cum Rulezi Testele
+# How to Run Tests
 
-Testele sunt in `backend/tests/`.
+Tests are in `backend/tests/`.
 
 ---
 
-## Cum le rulezi
+## How to run
 
 ```bash
 cd backend
 
-# Toate testele
+# All tests
 pytest -v
 
-# Doar un singur fisier
+# Single file only
 pytest tests/test_engine.py -v
 
-# Doar un test specific
+# Specific test
 pytest tests/test_engine.py::test_some_test -v
 ```
 
 ---
 
-## Ce teste exista
+## What tests exist
 
-| Fisier | Descriere |
-|---------|-----------|
+| File | Description |
+|------|-------------|
 | `test_engine.py` | Regulatory engine |
 | `test_parser.py` | Log parser |
 | `test_ai_api.py` | AI API |
@@ -38,11 +38,11 @@ pytest tests/test_engine.py::test_some_test -v
 
 ---
 
-## Structura testelor
+## Test structure
 
-Testele folosesc `pytest`.
+Tests use `pytest`.
 
-### Exemplu de test:
+### Test example:
 
 ```python
 def test_temp_reading():
@@ -56,12 +56,14 @@ def test_temp_reading():
 
 ## Coverage
 
-Testele acopera:
+Tests cover:
 
-- **Unit tests**: Toate tipurile de log cu date valide si invalide
-- **Edge cases**: Linii goale, spatii, timestamp-uri malformate, tipuri necunoscute
-- **Value parsing**: Temperaturi negative, zecimale, valori la limita, variatii de unitati
-- **Pattern detection**: Toate cele 5 detectoare de pattern-uri regulatorii
-- **Integration**: End-to-end cu fisier de log exemplu
-```
+- **Unit tests**: All log types with valid and invalid data
 
+- **Edge cases**: Empty lines, whitespace, malformed timestamps, unknown types
+
+- **Value parsing**: Negative temperatures, decimals, boundary values, unit variations
+
+- **Pattern detection**: All 5 regulatory pattern detectors
+
+- **Integration**: End-to-end with sample log file

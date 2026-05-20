@@ -1,7 +1,9 @@
-# Ghid pentru Incepatori
+# Getting Started Guide
 
-Aici vei gasi tot ce ai nevoie pentru a instala si configura MED-THERM.
+Here you will find everything you need to install and configure MED-THERM.
 
-## Continut
-- [Instalare](installation.md) - Cum instalezi cu Docker
-- [Configurare](configuration.md) - Variabile mediu
+## Contents
+
+- [Installation](installation.md) - How to install with Docker
+
+- [Configuration](configuration.md) - Environment variables

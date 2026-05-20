@@ -1,107 +1,106 @@
-# Extinderi Propuse
+# Proposed Extensions
 
-Extinderi viitoare pentru MED-THERM.
+Future extensions for MED-THERM.
 
 ---
 
-## Lista de extinderi
+## List of Extensions
 
-### 1. Autentificare si Autorizare
+### 1. Authentication and Authorization
 
-**Ce adauga**:
+**What it adds**:
 - Login/Register
 - JWT tokens
-- Roluri (Admin, User, Viewer)
+- Roles (Admin, User, Viewer)
 
-**Tehnologii**:
+**Technologies**:
 - FastAPI Security, OAuth2, Password Hashing (bcrypt)
 
-**Complexitate**: Medie
+**Complexity**: Medium
 
 ---
 
-### 2. Notificari Automatice
+### 2. Automatic Notifications
 
-**Ce adauga**:
-- Email/SMS cand sunt detectate violari critice
+**What it adds**:
+- Email/SMS when critical violations are detected
 
-**Tehnologii**:
-- FastAPI Background Tasks, Celery (pentru task-uri asincrone)
+**Technologies**:
+- FastAPI Background Tasks, Celery (for async tasks)
 
-**Complexitate**: Usoara
-
----
-
-### 3. Integrare cu Dispozitive in Timp Real
-
-**Ce adauga**:
-- Websockets pentru a primi date in timp real de la dispozitive
-
-**Tehnologii**:
-- FastAPI WebSockets, Redis (ca message broker)
-
-**Complexitate**: Medie
+**Complexity**: Low
 
 ---
 
-### 4. Rapoarte Avansate si Exporturi
+### 3. Real-Time Device Integration
 
-**Ce adauga**:
-- Export in PDF, Excel, CSV
-- Rapoarte programate
+**What it adds**:
+- WebSockets to receive real-time data from devices
 
-**Tehnologii**:
+**Technologies**:
+- FastAPI WebSockets, Redis (as message broker)
+
+**Complexity**: Medium
+
+---
+
+### 4. Advanced Reports and Exports
+
+**What it adds**:
+- Export to PDF, Excel, CSV
+- Scheduled reports
+
+**Technologies**:
 - ReportLab, Pandas, APScheduler
 
-**Complexitate**: Medie
+**Complexity**: Medium
 
 ---
 
 ### 5. Multi-Tenant
 
-**Ce adauga**:
-- Suport pentru multiple companii/organizatii izolate
+**What it adds**:
+- Support for multiple isolated companies/organizations
 
-**Tehnologii**:
+**Technologies**:
 - SQLAlchemy, FastAPI Dependencies
 
-**Complexitate**: Ridicata
+**Complexity**: High
 
 ---
 
-### 6. Aplicatie Mobila
+### 6. Mobile Application
 
-**Ce adauga**:
-- Aplicatie mobila pentru iOS si Android
+**What it adds**:
+- Mobile app for iOS and Android
 
-**Tehnologii**:
-- React Native sau Flutter
+**Technologies**:
+- React Native or Flutter
 
-**Complexitate**: Ridicata
+**Complexity**: High
 
 ---
 
-### 7. AI Model Local (fara ModelArk)
+### 7. Local AI Model (without ModelArk)
 
-**Ce adauga**:
-- Model AI local pentru analiza chart-urilor si text
+**What it adds**:
+- Local AI model for chart and text analysis
 
-**Tehnologii**:
+**Technologies**:
 - PyTorch/TensorFlow, Hugging Face Transformers
 
-**Complexitate**: Foarte Ridicata
+**Complexity**: Very High
 
 ---
 
-## Prioritati
+## Priorities
 
-| Prioritate | Extindere |
-|------------|------------|
-| Inalta | Autentificare si Autorizare |
-| Medie | Notificari Automatice |
-| Medie | Integrare cu Dispozitive in Timp Real |
-| Medie | Rapoarte Avansate |
-| Medie | Multi-Tenant |
-| Scazuta | Aplicatie Mobila |
-| Scazuta | AI Model Local |
-
+| Priority | Extension |
+|----------|-----------|
+| High | Authentication and Authorization |
+| Medium | Automatic Notifications |
+| Medium | Real-Time Device Integration |
+| Medium | Advanced Reports |
+| Medium | Multi-Tenant |
+| Low | Mobile Application |
+| Low | Local AI Model |

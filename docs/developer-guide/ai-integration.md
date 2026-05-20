@@ -1,6 +1,6 @@
 # AI Integration
 
-> Acest fisier a fost mutat din `docs/ai-analysis-module.md`.
+> This file was moved from `docs/ai-analysis-module.md`.
 
 ---
 

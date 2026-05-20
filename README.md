@@ -1,10 +1,10 @@
 # MED-THERM Compliance Engine
 
-Sistem de validare a conformitatii regulatorii pentru dispozitive medicale de transport cu control al temperaturii.
+Regulatory compliance validation system for temperature-controlled medical transport devices.
 
 ---
 
-## Tehnologii
+## Technologies
 
 - **Backend**: FastAPI, SQLAlchemy, PostgreSQL
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
@@ -19,13 +19,13 @@ Sistem de validare a conformitatii regulatorii pentru dispozitive medicale de tr
 git clone https://github.com/Paul7nameN/medical-device-regulatory
 cd medical-device-regulatory
 
-# Cu Docker
+# With Docker
 docker-compose up --build
 ```
 
 ---
 
-## Acceseaza
+## Access
 
 - **Frontend**: http://localhost:5173
 - **API**: http://localhost:8000
@@ -33,17 +33,12 @@ docker-compose up --build
 
 ---
 
-## Documentatie Completa
+## Complete Documentation
 
-- [Ghid complet](docs/index.md)
-- [Instalare](docs/getting-started/installation.md)
-- [Arhitectura](docs/architecture/overview.md)
-- [Ghid de utilizare](docs/user-guide/)
-- [Pentru dezvoltatori](docs/developer-guide/)
+- [Full Guide](docs/index.md)
+- [Installation](docs/getting-started/installation.md)
+- [Architecture](docs/architecture/overview.md)
+- [User Guide](docs/user-guide/)
+- [For Developers](docs/developer-guide/)
 - [Roadmap](docs/roadmap/)
 
----
-
-## Licenta
-
-Pentru uz intern.

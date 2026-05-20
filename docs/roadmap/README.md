@@ -1,5 +1,6 @@
-# Roadmap si Viitorul Proiectului
+# Roadmap and Project Future
 
-## Continut
-- [Extinderi Propuse](future-plans.md)
-- [Estimari de Efort](effort-estimates.md)
+## Contents
+
+- [Proposed Extensions](future-plans.md)
+- [Effort Estimates](effort-estimates.md)

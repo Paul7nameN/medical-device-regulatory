@@ -1,10 +1,15 @@
-# Ghid pentru Dezvoltatori
+# Developer Guide
 
-Tot ce ai nevoie pentru a dezvolta si extinde MED-THERM.
+Everything you need to develop and extend MED-THERM.
 
-## Continut
-- [Setup Mediu de Dezvoltare](setup.md) - Ruleaza fara Docker
+## Contents
+
+- [Development Environment Setup](setup.md) - Run without Docker
+
 - [Log Parser](log-parser.md)
+
 - [AI Integration](ai-integration.md)
-- [Cum Adaugi Reguli Noi](adding-rules.md)
-- [Cum Rulezi Testele](testing.md)
+
+- [How to Add New Rules](adding-rules.md)
+
+- [How to Run Tests](testing.md)
