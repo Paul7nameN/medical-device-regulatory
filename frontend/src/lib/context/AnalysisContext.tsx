@@ -14,7 +14,10 @@ import {
   createEmptySeverityCounts,
   type SeverityCounts,
   extractTemperatureFromRawLogs,
+  normalizeFindings,
 } from '@/lib/utils/transformers'
+import { buildTelemetrySeries } from '@/lib/telemetry/extract'
+import type { TelemetryDataPoint, TelemetryMetricId } from '@/lib/telemetry/metrics'
 
 const HISTORY_STORAGE_KEY = 'med-therm-analysis-history'
 const ACTIVE_INDEX_STORAGE_KEY = 'med-therm-active-index'
@@ -23,11 +26,58 @@ export interface LatestAnalysis {
   validationResult: ValidationResult
   rawLogs: string[]
   temperatureData: TemperatureDataPoint[]
+  telemetrySeries: Partial<Record<TelemetryMetricId, TelemetryDataPoint[]>>
   analyzedAt: string
   deviceId: string
   isPartial?: boolean
   analysisSessionId?: string
   aiAnalysis?: AIAnalysisResult
+}
+
+function normalizeBackendTemperature(
+  points: Array<TemperatureDataPoint & { value?: number }>
+): TemperatureDataPoint[] {
+  return points.map((point) => ({
+    timestamp: point.timestamp,
+    time: point.time ?? '',
+    sensorA: point.sensorA ?? point.value ?? 0,
+    sensorB: point.sensorB,
+    source: point.source,
+  }))
+}
+
+function enrichAnalysis(
+  base: Omit<LatestAnalysis, 'telemetrySeries' | 'temperatureData'> & {
+    temperatureData?: Array<TemperatureDataPoint & { value?: number }>
+    telemetrySeries?: Partial<Record<TelemetryMetricId, TelemetryDataPoint[]>>
+  }
+): LatestAnalysis {
+  const rawLogs = base.rawLogs || []
+  const tempFromBackend =
+    base.temperatureData && base.temperatureData.length > 0
+      ? normalizeBackendTemperature(base.temperatureData)
+      : undefined
+  const telemetrySeries =
+    base.telemetrySeries && Object.keys(base.telemetrySeries).length > 0
+      ? (base.telemetrySeries as Record<TelemetryMetricId, TelemetryDataPoint[]>)
+      : buildTelemetrySeries(rawLogs, tempFromBackend)
+
+  const temperatureData =
+    tempFromBackend && tempFromBackend.length > 0
+      ? tempFromBackend
+      : (telemetrySeries.temperature || []).map((point) => ({
+          timestamp: point.timestamp,
+          time: point.time,
+          sensorA: point.value,
+          sensorB: point.sensorB,
+          source: point.source,
+        }))
+
+  return {
+    ...base,
+    temperatureData,
+    telemetrySeries,
+  }
 }
 
 export interface AnalysisContextType {
@@ -163,17 +213,17 @@ interface BackendLatestAnalysisData {
   rawLogs: string[]
   validationResult: ValidationResult
   temperatureData?: TemperatureDataPoint[]
+  telemetrySeries?: Partial<Record<TelemetryMetricId, TelemetryDataPoint[]>>
 }
 
 function backendItemToLatestAnalysis(
   item: AnalysisSessionListItem
 ): LatestAnalysis | null {
-  const itemRecord = item as Record<string, unknown>
-  const sessionId = (itemRecord.id as string) || undefined
-  const data = itemRecord.latest_analysis_data as
+  const sessionId = item.id
+  const data = item.latest_analysis_data as
     | BackendLatestAnalysisData
     | undefined
-  const aiAnalysis = itemRecord.ai_analysis as AIAnalysisResult | undefined
+  const aiAnalysis = item.ai_analysis
 
   console.log('🔍 backendItemToLatestAnalysis: item=', item)
   console.log('🔍 ai_analysis found:', aiAnalysis ? 'YES' : 'NO')
@@ -197,23 +247,27 @@ function backendItemToLatestAnalysis(
     } else {
       tempData = extractTemperatureFromRawLogs(data.rawLogs || [])
     }
-    
-    return {
+
+    return enrichAnalysis({
       deviceId: data.deviceId,
       analyzedAt: data.analyzedAt,
       rawLogs: data.rawLogs || [],
-      validationResult: data.validationResult,
+      validationResult: {
+        ...data.validationResult,
+        findings: normalizeFindings(data.validationResult.findings || []),
+      },
       temperatureData: tempData,
+      telemetrySeries: data.telemetrySeries,
       analysisSessionId: sessionId,
       aiAnalysis: aiAnalysis,
-    }
+    })
   }
 
   console.log('⚠️ backendItemToLatestAnalysis: missing latest_analysis_data, creating partial analysis, item=', item)
   
-  const deviceId = (itemRecord.device_name as string) || 'unknown-device'
-  const analyzedAt = (itemRecord.created_at as string) || new Date().toISOString()
-  const violationCount = (itemRecord.violation_count as number) || 0
+  const deviceId = item.device_name || 'unknown-device'
+  const analyzedAt = item.created_at || new Date().toISOString()
+  const violationCount = item.violation_count || 0
 
   const partialValidationResult: ValidationResult = {
     device_id: deviceId,
@@ -226,7 +280,7 @@ function backendItemToLatestAnalysis(
     critical_count: 0,
   }
 
-  return {
+  return enrichAnalysis({
     deviceId,
     analyzedAt,
     rawLogs: [],
@@ -235,7 +289,7 @@ function backendItemToLatestAnalysis(
     isPartial: true,
     analysisSessionId: sessionId,
     aiAnalysis: aiAnalysis,
-  }
+  })
 }
 
 const AnalysisContext = createContext<AnalysisContextType | undefined>(undefined)
@@ -280,7 +334,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
      } catch (e) {
       console.warn('⚠️ Failed to load from DB, trying localStorage fallback:', e)
 
-       const localHistory = loadHistoryFromStorage()
+       const localHistory = loadHistoryFromStorage().map((item) => enrichAnalysis(item))
        if (localHistory.length > 0) {
          console.log('📦 Using localStorage fallback:', localHistory.length, 'items')
          setAnalysisHistory(localHistory)

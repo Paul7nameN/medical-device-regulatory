@@ -9,10 +9,7 @@ import {
 import { SummaryCard } from '@/components/SummaryCard'
 import { FileUploadZone } from '@/components/FileUploadZone'
 import { ComplianceScore, ComplianceScoreSkeleton } from '@/components/ComplianceScore'
-import {
-  TemperatureChart,
-  TemperatureChartSkeleton,
-} from '@/components/TemperatureChart'
+import { GraphSection } from '@/components/GraphSection'
 import { ViolationsTable } from '@/components/ViolationsTable'
 import { ErrorState } from '@/components/ErrorState'
 import { type RegCategory } from '@/lib/api'
@@ -22,7 +19,6 @@ import {
   calculateComplianceScoreFromCounts,
   groupViolationsByCategory,
 } from '@/lib/utils/transformers'
-import { REGULATORY_CONSTANTS } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/components/ui'
 import { AIAnalysisSection } from '@/components/AIAnalysis'
 import { AIChat } from '@/components/AIChat'
@@ -30,12 +26,10 @@ import { RulesList } from '@/components/RulesReference'
 import {
   Upload,
   BarChart3,
-  Thermometer,
+  LineChart,
   AlertTriangle,
   History,
-  Info,
   FileText,
-  Image,
    X,
    Trash2,
    BookOpen,
@@ -43,8 +37,6 @@ import {
  } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalysis } from '@/lib/context/AnalysisContext'
-
-const safeRange = REGULATORY_CONSTANTS.safeTemperatureRange
 
 function parseTimestampUTC(timestamp: string): Date {
   const hasTimezone = /Z|[+-]\d{2}:\d{2}$/.test(timestamp)
@@ -155,11 +147,11 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
     )
   }, [violations, selectedCategory])
 
-  const temperatureData = useMemo(() => {
+  const telemetrySeries = useMemo(() => {
     if (!hasData || !latestAnalysis) {
-      return null
+      return {}
     }
-    return latestAnalysis.temperatureData
+    return latestAnalysis.telemetrySeries ?? {}
   }, [hasData, latestAnalysis])
 
   const complianceScore = useMemo(() => {
@@ -187,93 +179,6 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
       low: failed.filter((f) => f.severity === 'low').length,
     }
   }, [hasData, latestAnalysis])
-
-  const sourceCounts = useMemo(() => {
-    if (!temperatureData) return { logFile: 0, chartImage: 0, unknown: 0 }
-
-    let logFile = 0
-    let chartImage = 0
-    let unknown = 0
-
-    for (const point of temperatureData) {
-      if (point.source === 'log_file') logFile++
-      else if (point.source === 'chart_image') chartImage++
-      else unknown++
-    }
-
-    return { logFile, chartImage, unknown }
-  }, [temperatureData])
-
-  const dataSourceBadge = useMemo(() => {
-    if (!temperatureData) return null
-
-    const { logFile, chartImage } = sourceCounts
-    const hasLog = logFile > 0
-    const hasChart = chartImage > 0
-
-    if (hasLog && hasChart) {
-      return (
-        <Badge variant="outline" className="gap-1.5">
-          <FileText className="h-3 w-3" />
-          <span>Logs</span>
-          <span className="text-muted-foreground">+</span>
-          <Image className="h-3 w-3" />
-          <span>Images</span>
-        </Badge>
-      )
-    }
-
-    if (hasChart) {
-      return (
-        <Badge variant="outline" className="gap-1.5">
-          <Image className="h-3 w-3" />
-          <span>From Chart Images</span>
-        </Badge>
-      )
-    }
-
-    return (
-      <Badge variant="outline" className="gap-1.5">
-        <FileText className="h-3 w-3" />
-        <span>From Device Logs</span>
-      </Badge>
-    )
-  }, [temperatureData, sourceCounts])
-
-  const excursions = useMemo(() => {
-    if (!temperatureData) return []
-    return temperatureData.filter(
-      (d) => d.sensorA < safeRange.min || d.sensorA > safeRange.max
-    )
-  }, [temperatureData])
-
-  const excursionsB = useMemo(() => {
-    if (!temperatureData) return []
-    return temperatureData.filter(
-      (d) =>
-        d.sensorB !== undefined &&
-        (d.sensorB < safeRange.min || d.sensorB > safeRange.max)
-    )
-  }, [temperatureData])
-
-  const avgTempA = useMemo(() => {
-    if (!temperatureData || temperatureData.length === 0) return null
-    return (
-      temperatureData.reduce((sum, d) => sum + d.sensorA, 0) / temperatureData.length
-    ).toFixed(1)
-  }, [temperatureData])
-
-  const avgTempB = useMemo(() => {
-    if (!temperatureData) return null
-    const hasB = temperatureData.some((d) => d.sensorB !== undefined)
-    if (!hasB) return null
-    return (
-      temperatureData.reduce(
-        (sum, d) => sum + (d.sensorB || d.sensorA),
-        0
-      ) / temperatureData.length
-    ).toFixed(1)
-  }, [temperatureData])
 
   const criticalCount = useMemo(
     () => (violations ? violations.filter((v) => v.severity === 'critical').length : 0),
@@ -390,9 +295,9 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
               <BarChart3 className="h-4 w-4 mr-2 hidden sm:inline" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="temperature" className="touch-target">
-              <Thermometer className="h-4 w-4 mr-2 hidden sm:inline" />
-              Temperature
+            <TabsTrigger value="graphs" className="touch-target">
+              <LineChart className="h-4 w-4 mr-2 hidden sm:inline" />
+              Graphs
             </TabsTrigger>
             <TabsTrigger value="violations" className="touch-target">
               <AlertTriangle className="h-4 w-4 mr-2 hidden sm:inline" />
@@ -547,207 +452,12 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
           )}
         </TabsContent>
 
-         <TabsContent value="temperature" className="mt-6 space-y-6">
-           {!temperatureData || temperatureData.length === 0 ? (
-             <EmptyStateCard
-               icon={Thermometer}
-               title="No temperature data available"
-               description="Temperature readings will appear here after uploading device log files or chart images."
-               actionLabel="Go to Overview"
-               onActionClick={() => setActiveTab('overview')}
-             />
-           ) : (
-            <>
-              {dataSourceBadge && (
-                <div className="flex items-center gap-2">
-                  {dataSourceBadge}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {avgTempA && (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Thermometer className="h-4 w-4 text-primary" />
-                        Sensor A (Avg)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p
-                        className={cn(
-                          'text-2xl font-bold',
-                          Number(avgTempA) >= safeRange.min &&
-                            Number(avgTempA) <= safeRange.max
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
-                        )}
-                      >
-                        {avgTempA}°C
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {excursions.length > 0 ? (
-                          <span className="text-red-600 dark:text-red-400">
-                            {excursions.length} excursions detected
-                          </span>
-                        ) : (
-                          <span className="text-green-600 dark:text-green-400">Within safe range</span>
-                        )}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {avgTempB !== null && (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Thermometer className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                        Sensor B (Avg)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p
-                        className={cn(
-                          'text-2xl font-bold',
-                          Number(avgTempB) >= safeRange.min &&
-                            Number(avgTempB) <= safeRange.max
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
-                        )}
-                      >
-                        {avgTempB}°C
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {excursionsB.length > 0 ? (
-                          <span className="text-red-600 dark:text-red-400">
-                            {excursionsB.length} excursions detected
-                          </span>
-                        ) : (
-                          <span className="text-green-600 dark:text-green-400">Within safe range</span>
-                        )}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Safe Range</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold text-foreground">
-                      {safeRange.min}°C - {safeRange.max}°C
-                    </p>
-                    <p className="text-xs text-muted-foreground">REG-TEMP requirement</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      {excursions.length === 0 && excursionsB.length === 0 ? (
-                        <Badge variant="low">Compliant</Badge>
-                      ) : (
-                        <Badge variant="critical">
-                          {excursions.length + excursionsB.length} Issues
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      From {temperatureData.length} readings
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {showLoading ? (
-                <TemperatureChartSkeleton />
-              ) : (
-                <TemperatureChart data={temperatureData} />
-              )}
-
-              <Card className="border-border bg-muted/40">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Info className="h-4 w-4 text-muted-foreground" />
-                    About Temperature Monitoring
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-muted-foreground">
-                    <div>
-                      <h4 className="font-medium text-foreground mb-2">
-                        REG-TEMP Requirements
-                      </h4>
-                      <ul className="space-y-1">
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>REG-TEMP-1:</strong> Temperature must stay within
-                            2-8°C range
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>REG-TEMP-2:</strong> Excursions must recover
-                            within 30 minutes
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>REG-TEMP-3:</strong> Temperature recovery
-                            verification
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-foreground mb-2">
-                        Chart Features
-                      </h4>
-                      <ul className="space-y-1">
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>Green band:</strong> Safe temperature range
-                            (2-8°C)
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>Red/Orange highlights:</strong> Excursions outside
-                            safe range
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>Brush control:</strong> Drag to zoom into specific
-                            time ranges
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>Legend toggle:</strong> Click legend items to
-                            show/hide sensor data
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
+         <TabsContent value="graphs" className="mt-6 space-y-6">
+           <GraphSection
+             telemetrySeries={telemetrySeries}
+             isLoading={showLoading}
+           />
+         </TabsContent>
 
          <TabsContent value="violations" className="mt-6 space-y-6">
            {!violations ? (
