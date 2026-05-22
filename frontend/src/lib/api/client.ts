@@ -20,7 +20,18 @@ export interface AnalysisSessionListItem {
     analyzedAt: string
     rawLogs: string[]
     validationResult: ValidationResult
-    temperatureData?: Array<{ timestamp: string; sensorA: number; sensorB?: number; source?: string }>
+    temperatureData?: Array<{
+      timestamp: string
+      time?: string
+      sensorA?: number
+      value?: number
+      sensorB?: number
+      source?: string
+    }>
+    telemetrySeries?: Record<
+      string,
+      Array<{ timestamp: string; time: string; value: number; source?: string }>
+    >
   }
   ai_analysis?: AIAnalysisResult
 }

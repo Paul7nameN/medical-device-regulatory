@@ -28,6 +28,13 @@ export function convertCategory(category: string): string {
   return category
 }
 
+export function normalizeFindings(findings: Finding[]): Finding[] {
+  return findings.map((finding) => ({
+    ...finding,
+    category: convertCategory(finding.category) as RegCategory,
+  }))
+}
+
 export interface SeverityCounts {
   critical: number
   high: number
@@ -163,10 +170,11 @@ export function createAnalysisData(
   validationResult: ValidationResult,
   rawLogs: string[] = []
 ): AnalysisTemperatureData {
+  const temperatureData = extractTemperatureFromRawLogs(rawLogs)
   return {
     validationResult,
     rawLogs,
-    temperatureData: extractTemperatureFromRawLogs(rawLogs),
+    temperatureData,
     analyzedAt: new Date().toISOString(),
     deviceId: validationResult.device_id,
   }
