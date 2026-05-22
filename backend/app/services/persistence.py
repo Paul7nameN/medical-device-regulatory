@@ -60,6 +60,46 @@ def _map_log_type_to_db_enum(raw_log_type: str) -> str:
     return DbLogType.TELEMETRY.value
 
 
+_TELEMETRY_LOG_TYPES = {
+    "TEMP_READING": "temperature",
+    "HUMIDITY": "humidity",
+    "VOLTAGE": "voltage",
+    "FAN_SPEED": "fan_speed",
+    "BATTERY_LEVEL": "battery",
+}
+
+
+def _extract_telemetry_series_from_logs(logs: List[LogEntryModel]) -> Dict[str, List[Dict[str, Any]]]:
+    series: Dict[str, List[Dict[str, Any]]] = {key: [] for key in _TELEMETRY_LOG_TYPES.values()}
+
+    for log_model in logs:
+        metric_key = _TELEMETRY_LOG_TYPES.get(log_model.log_type.value)
+        if not metric_key:
+            continue
+
+        value = log_model.parsed_value
+        if value is None:
+            continue
+
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError):
+            continue
+
+        timestamp = log_model.timestamp
+        series[metric_key].append({
+            "timestamp": timestamp.isoformat(),
+            "time": timestamp.strftime("%H:%M"),
+            "value": numeric_value,
+            "source": "log_file",
+        })
+
+    for key in series:
+        series[key] = sorted(series[key], key=lambda point: point["timestamp"])
+
+    return {k: v for k, v in series.items() if v}
+
+
 class PersistenceService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -113,6 +153,14 @@ class PersistenceService:
         
         if existing_latest.get("temperatureData"):
             full_config["_latest_analysis_data"]["temperatureData"] = existing_latest["temperatureData"]
+        elif logs:
+            telemetry = _extract_telemetry_series_from_logs(logs)
+            if telemetry.get("temperature"):
+                full_config["_latest_analysis_data"]["temperatureData"] = telemetry["temperature"]
+            if telemetry:
+                full_config["_latest_analysis_data"]["telemetrySeries"] = telemetry
+        elif existing_latest.get("telemetrySeries"):
+            full_config["_latest_analysis_data"]["telemetrySeries"] = existing_latest["telemetrySeries"]
 
         session = AnalysisSession(
             device_id=device.id,

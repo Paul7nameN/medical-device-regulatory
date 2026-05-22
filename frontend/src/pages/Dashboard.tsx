@@ -9,10 +9,7 @@ import {
 import { SummaryCard } from '@/components/SummaryCard'
 import { FileUploadZone } from '@/components/FileUploadZone'
 import { ComplianceScore, ComplianceScoreSkeleton } from '@/components/ComplianceScore'
-import {
-  TemperatureChart,
-  TemperatureChartSkeleton,
-} from '@/components/TemperatureChart'
+import { GraphSection } from '@/components/GraphSection'
 import { ViolationsTable } from '@/components/ViolationsTable'
 import { ErrorState } from '@/components/ErrorState'
 import { 
@@ -29,7 +26,6 @@ import {
   calculateComplianceScoreFromCounts,
   groupViolationsByCategory,
 } from '@/lib/utils/transformers'
-import { REGULATORY_CONSTANTS } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/components/ui'
 import { AIAnalysisSection } from '@/components/AIAnalysis'
 import { AIChat } from '@/components/AIChat'
@@ -40,20 +36,22 @@ import { AlignmentUncertaintyBanner } from '@/components/AlignmentUncertaintyBan
 import {
   Upload,
   BarChart3,
-  Thermometer,
+  LineChart,
   AlertTriangle,
   History,
-  Info,
   FileText,
-  Image,
-   X,
-   Trash2,
-   BookOpen,
-   Loader2,
-   Clock,
- } from 'lucide-react'
+  X,
+  Trash2,
+  BookOpen,
+  Loader2,
+  Clock,
+  Thermometer,
+  Info,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalysis } from '@/lib/context/AnalysisContext'
+import { REGULATORY_CONSTANTS } from '@/lib/constants'
+import type { TemperatureDataPoint } from '@/components/TemperatureChart'
 
 interface MultiModalData {
   report?: AggregatedComplianceReport
@@ -75,110 +73,110 @@ function parseTimestampUTC(timestamp: string): Date {
   return new Date(timestamp + 'Z')
 }
 
- function EmptyStateCard({
-   icon: Icon,
-   title,
-   description,
-   actionLabel,
-   actionTo,
-   onActionClick,
- }: {
-   icon: React.ElementType
-   title: string
-   description: string
-   actionLabel?: string
-   actionTo?: string
-   onActionClick?: () => void
- }) {
-   return (
-     <Card className="border-dashed border-border/80 bg-muted/20">
-       <CardContent className="p-8 text-center">
-         <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-           <Icon className="h-6 w-6 text-muted-foreground" />
-         </div>
-         <h3 className="text-sm font-medium text-foreground mb-1">{title}</h3>
-         <p className="text-sm text-muted-foreground mb-4">{description}</p>
-         {actionLabel && (
-           onActionClick ? (
-             <Button onClick={onActionClick} size="sm" className="touch-target">
-               <Upload className="h-4 w-4 mr-2" />
-               {actionLabel}
-             </Button>
-           ) : actionTo ? (
-             <Link to={actionTo}>
-               <Button size="sm" className="touch-target">
-                 <Upload className="h-4 w-4 mr-2" />
-                 {actionLabel}
-               </Button>
-             </Link>
-           ) : null
-         )}
-       </CardContent>
-     </Card>
-   )
- }
+function EmptyStateCard({
+  icon: Icon,
+  title,
+  description,
+  actionLabel,
+  actionTo,
+  onActionClick,
+}: {
+  icon: React.ElementType
+  title: string
+  description: string
+  actionLabel?: string
+  actionTo?: string
+  onActionClick?: () => void
+}) {
+  return (
+    <Card className="border-dashed border-border/80 bg-muted/20">
+      <CardContent className="p-8 text-center">
+        <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+          <Icon className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <h3 className="text-sm font-medium text-foreground mb-1">{title}</h3>
+        <p className="text-sm text-muted-foreground mb-4">{description}</p>
+        {actionLabel && (
+          onActionClick ? (
+            <Button onClick={onActionClick} size="sm" className="touch-target">
+              <Upload className="h-4 w-4 mr-2" />
+              {actionLabel}
+            </Button>
+          ) : actionTo ? (
+            <Link to={actionTo}>
+              <Button size="sm" className="touch-target">
+                <Upload className="h-4 w-4 mr-2" />
+                {actionLabel}
+              </Button>
+            </Link>
+          ) : null
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 interface DashboardPageProps {
   isLoading?: boolean
 }
 
- export function DashboardPage({ isLoading = false }: DashboardPageProps) {
-   const [activeTab, setActiveTab] = useState('overview')
-    const {
-      latestAnalysis,
-      hasData,
-      isAnalyzing,
-      error,
-      clearError,
-      analysisHistory,
-      switchAnalysis,
-      removeAnalysis,
-      clearHistory,
-      activeAnalysisIndex,
-    } = useAnalysis()
+export function DashboardPage({ isLoading = false }: DashboardPageProps) {
+  const [activeTab, setActiveTab] = useState('overview')
+  const {
+    latestAnalysis,
+    hasData,
+    isAnalyzing,
+    error,
+    clearError,
+    analysisHistory,
+    switchAnalysis,
+    removeAnalysis,
+    clearHistory,
+    activeAnalysisIndex,
+  } = useAnalysis()
 
-    const [multiModalData, setMultiModalData] = useState<MultiModalData | null>(null)
+  const [multiModalData, setMultiModalData] = useState<MultiModalData | null>(null)
 
-     useEffect(() => {
-       if (!latestAnalysis || !latestAnalysis.validationResult) {
-         setMultiModalData(null)
-         return
-       }
+  useEffect(() => {
+    if (!latestAnalysis || !latestAnalysis.validationResult) {
+      setMultiModalData(null)
+      return
+    }
 
-       const vr = latestAnalysis.validationResult as any
+    const vr = latestAnalysis.validationResult as any
 
-       if (!vr.data_sources && !vr.correlation_insights && !vr.alignment_uncertain) {
-         setMultiModalData(null)
-         return
-       }
+    if (!vr.data_sources && !vr.correlation_insights && !vr.alignment_uncertain) {
+      setMultiModalData(null)
+      return
+    }
 
-       let alignmentMethod: string | undefined
-       if (vr.data_sources && vr.data_sources.length > 0) {
-         const alignedSource = vr.data_sources.find((s: any) => s.alignment)
-         if (alignedSource?.alignment?.method) {
-           alignmentMethod = alignedSource.alignment.method
-         }
-       }
+    let alignmentMethod: string | undefined
+    if (vr.data_sources && vr.data_sources.length > 0) {
+      const alignedSource = vr.data_sources.find((s: any) => s.alignment)
+      if (alignedSource?.alignment?.method) {
+        alignmentMethod = alignedSource.alignment.method
+      }
+    }
 
-       setMultiModalData({
-         report: vr,
-         correlation_insights: vr.correlation_insights,
-         conflicting_findings: vr.conflicting_findings,
-         timeline_events: vr.temporal_analysis?.event_timeline,
-         alignment_uncertain: vr.alignment_uncertain,
-         alignment_confidence: vr.multi_modal_confidence,
-         alignment_method: alignmentMethod,
-       })
-     }, [latestAnalysis])
+    setMultiModalData({
+      report: vr,
+      correlation_insights: vr.correlation_insights,
+      conflicting_findings: vr.conflicting_findings,
+      timeline_events: vr.temporal_analysis?.event_timeline,
+      alignment_uncertain: vr.alignment_uncertain,
+      alignment_confidence: vr.multi_modal_confidence,
+      alignment_method: alignmentMethod,
+    })
+  }, [latestAnalysis])
 
-   const hasMultiModalData = multiModalData && (
-     multiModalData.correlation_insights?.length || 
-     multiModalData.conflicting_findings?.length ||
-     multiModalData.timeline_events?.length ||
-     multiModalData.alignment_uncertain
-   )
+  const hasMultiModalData = multiModalData && (
+    multiModalData.correlation_insights?.length || 
+    multiModalData.conflicting_findings?.length ||
+    multiModalData.timeline_events?.length ||
+    multiModalData.alignment_uncertain
+  )
 
-   console.log('🟢 Dashboard: latestAnalysis =', latestAnalysis)
+  console.log('🟢 Dashboard: latestAnalysis =', latestAnalysis)
   console.log('🟢 Dashboard: hasData =', hasData)
   console.log('🟢 Dashboard: analysisHistory.length =', analysisHistory.length)
   console.log('🟢 Dashboard: latestAnalysis?.aiAnalysis =', latestAnalysis?.aiAnalysis)
@@ -187,27 +185,27 @@ interface DashboardPageProps {
     console.log('🟢 Dashboard: aiAnalysis.risk_level =', latestAnalysis.aiAnalysis.session_risk_overview?.risk_level)
   }
 
-   const showLoading = isLoading || isAnalyzing
+  const showLoading = isLoading || isAnalyzing
 
-   const categoryData = useMemo(() => {
-     if (!hasData || !latestAnalysis) {
-       return null
-     }
-     return groupViolationsByCategory(latestAnalysis.validationResult.findings)
-   }, [hasData, latestAnalysis])
-
-   const violations = useMemo(() => {
-     if (!hasData || !latestAnalysis) {
-       return null
-     }
-     return findingsToDetectedViolations(latestAnalysis.validationResult.findings)
-   }, [hasData, latestAnalysis])
-
-  const temperatureData = useMemo(() => {
+  const categoryData = useMemo(() => {
     if (!hasData || !latestAnalysis) {
       return null
     }
-    return latestAnalysis.temperatureData
+    return groupViolationsByCategory(latestAnalysis.validationResult.findings)
+  }, [hasData, latestAnalysis])
+
+  const violations = useMemo(() => {
+    if (!hasData || !latestAnalysis) {
+      return null
+    }
+    return findingsToDetectedViolations(latestAnalysis.validationResult.findings)
+  }, [hasData, latestAnalysis])
+
+  const telemetrySeries = useMemo(() => {
+    if (!hasData || !latestAnalysis) {
+      return {}
+    }
+    return latestAnalysis.telemetrySeries ?? {}
   }, [hasData, latestAnalysis])
 
   const complianceScore = useMemo(() => {
@@ -235,93 +233,6 @@ interface DashboardPageProps {
       low: failed.filter((f) => f.severity === 'low').length,
     }
   }, [hasData, latestAnalysis])
-
-  const sourceCounts = useMemo(() => {
-    if (!temperatureData) return { logFile: 0, chartImage: 0, unknown: 0 }
-
-    let logFile = 0
-    let chartImage = 0
-    let unknown = 0
-
-    for (const point of temperatureData) {
-      if (point.source === 'log_file') logFile++
-      else if (point.source === 'chart_image') chartImage++
-      else unknown++
-    }
-
-    return { logFile, chartImage, unknown }
-  }, [temperatureData])
-
-  const dataSourceBadge = useMemo(() => {
-    if (!temperatureData) return null
-
-    const { logFile, chartImage } = sourceCounts
-    const hasLog = logFile > 0
-    const hasChart = chartImage > 0
-
-    if (hasLog && hasChart) {
-      return (
-        <Badge variant="outline" className="gap-1.5">
-          <FileText className="h-3 w-3" />
-          <span>Logs</span>
-          <span className="text-muted-foreground">+</span>
-          <Image className="h-3 w-3" />
-          <span>Images</span>
-        </Badge>
-      )
-    }
-
-    if (hasChart) {
-      return (
-        <Badge variant="outline" className="gap-1.5">
-          <Image className="h-3 w-3" />
-          <span>From Chart Images</span>
-        </Badge>
-      )
-    }
-
-    return (
-      <Badge variant="outline" className="gap-1.5">
-        <FileText className="h-3 w-3" />
-        <span>From Device Logs</span>
-      </Badge>
-    )
-  }, [temperatureData, sourceCounts])
-
-  const excursions = useMemo(() => {
-    if (!temperatureData) return []
-    return temperatureData.filter(
-      (d) => d.sensorA < safeRange.min || d.sensorA > safeRange.max
-    )
-  }, [temperatureData])
-
-  const excursionsB = useMemo(() => {
-    if (!temperatureData) return []
-    return temperatureData.filter(
-      (d) =>
-        d.sensorB !== undefined &&
-        (d.sensorB < safeRange.min || d.sensorB > safeRange.max)
-    )
-  }, [temperatureData])
-
-  const avgTempA = useMemo(() => {
-    if (!temperatureData || temperatureData.length === 0) return null
-    return (
-      temperatureData.reduce((sum, d) => sum + d.sensorA, 0) / temperatureData.length
-    ).toFixed(1)
-  }, [temperatureData])
-
-  const avgTempB = useMemo(() => {
-    if (!temperatureData) return null
-    const hasB = temperatureData.some((d) => d.sensorB !== undefined)
-    if (!hasB) return null
-    return (
-      temperatureData.reduce(
-        (sum, d) => sum + (d.sensorB || d.sensorA),
-        0
-      ) / temperatureData.length
-    ).toFixed(1)
-  }, [temperatureData])
 
   const criticalCount = useMemo(
     () => (violations ? violations.filter((v) => v.severity === 'critical').length : 0),
@@ -368,218 +279,209 @@ interface DashboardPageProps {
     )
   }
 
-    // ============================================
-    // LAYOUT DUAL: Cand nu avem date, afisam pagina simpla cu Upload
-    // ============================================
-    if (!hasData && !isAnalyzing) {
-      return (
-        <div className="flex flex-col items-center">
-          <div className="w-full max-w-3xl">
-            <div className="text-center mb-2">
-              <h2 className="text-lg sm:text-xl font-bold text-foreground font-heading mb-1">
-                Upload files to start compliance analysis
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Drag and drop device log files (.txt) or chart images (.png, .jpg) below
-              </p>
-            </div>
-            <FileUploadZone
-              onUploadComplete={() => {}}
-              maxFiles={10}
-              maxSize={50 * 1024 * 1024}
+  if (!hasData && !isAnalyzing) {
+    return (
+      <div className="flex flex-col items-center">
+        <div className="w-full max-w-3xl">
+          <div className="text-center mb-2">
+            <h2 className="text-lg sm:text-xl font-bold text-foreground font-heading mb-1">
+              Upload files to start compliance analysis
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Drag and drop device log files (.txt) or chart images (.png, .jpg) below
+            </p>
+          </div>
+          <FileUploadZone
+            onUploadComplete={() => {}}
+            maxFiles={10}
+            maxSize={50 * 1024 * 1024}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasData && isAnalyzing) {
+    return (
+      <div className="min-h-[40vh] flex flex-col items-center pt-4 sm:pt-8">
+        <Card className="w-full max-w-md border-border bg-muted/40">
+          <CardContent className="p-12 text-center">
+            <Loader2 className="h-16 w-16 mx-auto mb-6 text-primary animate-spin" />
+            <h3 className="text-xl font-semibold text-foreground mb-3">
+              Analyzing your files...
+            </h3>
+            <p className="text-base text-muted-foreground">
+              Please wait while we process your device logs or chart images.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-heading">
+            Analysis Hub
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {latestAnalysis
+              ? `Device: ${latestAnalysis.deviceId || 'Unknown'} • ${analysisHistory.length > 1 ? `Analysis ${activeAnalysisIndex + 1} of ${analysisHistory.length}` : 'Single analysis loaded'}`
+              : 'MED-THERM compliance overview for your medical devices'}
+          </p>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full sm:w-auto grid grid-cols-5 sm:inline-flex">
+          <TabsTrigger value="overview" className="touch-target">
+            <BarChart3 className="h-4 w-4 mr-2 hidden sm:inline" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="graphs" className="touch-target">
+            <LineChart className="h-4 w-4 mr-2 hidden sm:inline" />
+            Graphs
+          </TabsTrigger>
+          <TabsTrigger value="violations" className="touch-target">
+            <AlertTriangle className="h-4 w-4 mr-2 hidden sm:inline" />
+            Violations
+            {criticalCount > 0 && (
+              <Badge variant="critical" className="ml-2 hidden sm:inline-flex">
+                {criticalCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="timeline" className="touch-target">
+            <Clock className="h-4 w-4 mr-2 hidden sm:inline" />
+            Timeline
+            {hasMultiModalData && multiModalData?.timeline_events?.length ? (
+              <Badge variant="info" className="ml-2 hidden sm:inline-flex">
+                {multiModalData.timeline_events.length}
+              </Badge>
+            ) : null}
+          </TabsTrigger>
+          <TabsTrigger value="rules" className="touch-target">
+            <BookOpen className="h-4 w-4 mr-2 hidden sm:inline" />
+            Rules
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-6 space-y-6">
+          {multiModalData?.alignment_uncertain && (
+            <AlignmentUncertaintyBanner
+              alignmentConfidence={multiModalData.alignment_confidence}
+              alignmentMethod={multiModalData.alignment_method}
             />
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 flex flex-col">
+              {isAnalyzing && !hasData ? (
+                <Card className="border-border bg-muted/40 h-full">
+                  <CardContent className="p-8 text-center">
+                    <Loader2 className="h-12 w-12 mx-auto mb-4 text-primary animate-spin" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      Analyzing your files...
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Please wait while we process your device logs or chart images.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : showLoading ? (
+                <ComplianceScoreSkeleton />
+              ) : !complianceScore ? (
+                <Card className="border-dashed border-border/80 bg-muted/20 h-full">
+                  <CardContent className="p-8">
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold text-foreground mb-2">
+                        No compliance data available
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Upload device log files or chart images to generate a compliance analysis.
+                      </p>
+                    </div>
+                    <FileUploadZone
+                      onUploadComplete={() => {}}
+                      maxFiles={10}
+                      maxSize={50 * 1024 * 1024}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <ComplianceScore
+                  score={complianceScore.score}
+                  totalRules={complianceScore.total}
+                  passedRules={complianceScore.passed}
+                  failedRules={complianceScore.failed}
+                  className="h-full"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {showLoading ? (
+                <Card className="h-full">
+                  <CardContent className="p-6">
+                    <div className="h-24 bg-border rounded animate-pulse" />
+                  </CardContent>
+                </Card>
+              ) : !severityCounts ? (
+                <Card className="h-full">
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      {['Critical', 'High', 'Medium', 'Low'].map((level) => (
+                        <div
+                          key={level}
+                          className="text-center p-3 bg-muted/40 rounded-lg"
+                        >
+                          <div className="text-3xl font-bold text-muted-foreground">-</div>
+                          <div className="text-xs text-muted-foreground">{level}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="h-full">
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                        <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+                          {severityCounts.critical}
+                        </div>
+                        <div className="text-xs text-red-700 dark:text-red-400">Critical</div>
+                      </div>
+                      <div className="text-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                        <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                          {severityCounts.high}
+                        </div>
+                        <div className="text-xs text-orange-700 dark:text-orange-400">High</div>
+                      </div>
+                      <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
+                        <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                          {severityCounts.medium}
+                        </div>
+                        <div className="text-xs text-yellow-700 dark:text-yellow-400">Medium</div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                        <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                          {severityCounts.low}
+                        </div>
+                        <div className="text-xs text-green-700 dark:text-green-400">Low</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
-      )
-    }
 
-    // ============================================
-    // Cand avem date SAU suntem in timpul analizei
-    // ============================================
-    if (!hasData && isAnalyzing) {
-      return (
-        <div className="min-h-[40vh] flex flex-col items-center pt-4 sm:pt-8">
-          <Card className="w-full max-w-md border-border bg-muted/40">
-            <CardContent className="p-12 text-center">
-              <Loader2 className="h-16 w-16 mx-auto mb-6 text-primary animate-spin" />
-              <h3 className="text-xl font-semibold text-foreground mb-3">
-                Analyzing your files...
-              </h3>
-              <p className="text-base text-muted-foreground">
-                Please wait while we process your device logs or chart images.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )
-    }
-
-   // ============================================
-   // Cand avem date, afisam dashboard-ul normal
-   // ============================================
-   return (
-     <div className="space-y-6">
-       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-         <div>
-           <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-heading">
-             Analysis Hub
-           </h1>
-           <p className="text-muted-foreground mt-1">
-             {latestAnalysis
-               ? `Device: ${latestAnalysis.deviceId || 'Unknown'} • ${analysisHistory.length > 1 ? `Analysis ${activeAnalysisIndex + 1} of ${analysisHistory.length}` : 'Single analysis loaded'}`
-               : 'MED-THERM compliance overview for your medical devices'}
-           </p>
-          </div>
-        </div>
-
-         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-           <TabsList className="w-full sm:w-auto grid grid-cols-5 sm:inline-flex">
-             <TabsTrigger value="overview" className="touch-target">
-               <BarChart3 className="h-4 w-4 mr-2 hidden sm:inline" />
-               Overview
-             </TabsTrigger>
-             <TabsTrigger value="temperature" className="touch-target">
-               <Thermometer className="h-4 w-4 mr-2 hidden sm:inline" />
-               Temperature
-             </TabsTrigger>
-             <TabsTrigger value="violations" className="touch-target">
-               <AlertTriangle className="h-4 w-4 mr-2 hidden sm:inline" />
-               Violations
-               {criticalCount > 0 && (
-                 <Badge variant="critical" className="ml-2 hidden sm:inline-flex">
-                   {criticalCount}
-                 </Badge>
-               )}
-             </TabsTrigger>
-             <TabsTrigger value="timeline" className="touch-target">
-               <Clock className="h-4 w-4 mr-2 hidden sm:inline" />
-               Timeline
-               {hasMultiModalData && multiModalData?.timeline_events?.length ? (
-                 <Badge variant="info" className="ml-2 hidden sm:inline-flex">
-                   {multiModalData.timeline_events.length}
-                 </Badge>
-               ) : null}
-             </TabsTrigger>
-             <TabsTrigger value="rules" className="touch-target">
-               <BookOpen className="h-4 w-4 mr-2 hidden sm:inline" />
-               Rules
-             </TabsTrigger>
-           </TabsList>
-
-         <TabsContent value="overview" className="mt-6 space-y-6">
-           {multiModalData?.alignment_uncertain && (
-             <AlignmentUncertaintyBanner
-               alignmentConfidence={multiModalData.alignment_confidence}
-               alignmentMethod={multiModalData.alignment_method}
-             />
-           )}
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 flex flex-col">
-               {isAnalyzing && !hasData ? (
-                 <Card className="border-border bg-muted/40 h-full">
-                   <CardContent className="p-8 text-center">
-                     <Loader2 className="h-12 w-12 mx-auto mb-4 text-primary animate-spin" />
-                     <h3 className="text-lg font-semibold text-foreground mb-2">
-                       Analyzing your files...
-                     </h3>
-                     <p className="text-sm text-muted-foreground">
-                       Please wait while we process your device logs or chart images.
-                     </p>
-                   </CardContent>
-                 </Card>
-               ) : showLoading ? (
-                 <ComplianceScoreSkeleton />
-               ) : !complianceScore ? (
-                 <Card className="border-dashed border-border/80 bg-muted/20 h-full">
-                   <CardContent className="p-8">
-                     <div className="mb-6">
-                       <h3 className="text-lg font-semibold text-foreground mb-2">
-                         No compliance data available
-                       </h3>
-                       <p className="text-sm text-muted-foreground">
-                         Upload device log files or chart images to generate a compliance analysis.
-                       </p>
-                     </div>
-                     <FileUploadZone
-                       onUploadComplete={() => {}}
-                       maxFiles={10}
-                       maxSize={50 * 1024 * 1024}
-                     />
-                   </CardContent>
-                 </Card>
-               ) : (
-                 <ComplianceScore
-                   score={complianceScore.score}
-                   totalRules={complianceScore.total}
-                   passedRules={complianceScore.passed}
-                   failedRules={complianceScore.failed}
-                   className="h-full"
-                 />
-               )}
-              </div>
-
-             <div className="flex flex-col gap-4">
-               {showLoading ? (
-                 <Card className="h-full">
-                   <CardContent className="p-6">
-                     <div className="h-24 bg-border rounded animate-pulse" />
-                   </CardContent>
-                 </Card>
-               ) : !severityCounts ? (
-                 <Card className="h-full">
-                   <CardContent className="p-6">
-                     <div className="grid grid-cols-2 gap-4">
-                       {['Critical', 'High', 'Medium', 'Low'].map((level) => (
-                         <div
-                           key={level}
-                           className="text-center p-3 bg-muted/40 rounded-lg"
-                         >
-                           <div className="text-3xl font-bold text-muted-foreground">-</div>
-                           <div className="text-xs text-muted-foreground">{level}</div>
-                         </div>
-                       ))}
-                     </div>
-                   </CardContent>
-                 </Card>
-               ) : (
-                 <Card className="h-full">
-                   <CardContent className="p-6">
-                     <div className="grid grid-cols-2 gap-4">
-                       <div className="text-center p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
-                         <div className="text-3xl font-bold text-red-600 dark:text-red-400">
-                           {severityCounts.critical}
-                         </div>
-                         <div className="text-xs text-red-700 dark:text-red-400">Critical</div>
-                       </div>
-                        <div className="text-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-                          <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                            {severityCounts.high}
-                          </div>
-                          <div className="text-xs text-orange-700 dark:text-orange-400">High</div>
-                        </div>
-                        <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
-                          <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                            {severityCounts.medium}
-                          </div>
-                          <div className="text-xs text-yellow-700 dark:text-yellow-400">Medium</div>
-                        </div>
-                        <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                          <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                            {severityCounts.low}
-                          </div>
-                          <div className="text-xs text-green-700 dark:text-green-400">Low</div>
-                        </div>
-                     </div>
-                   </CardContent>
-                 </Card>
-               )}
-             </div>
-           </div>
-
-           <div>
-             <h2 className="text-lg font-semibold text-foreground font-heading mb-4">
-               Compliance by Category
-             </h2>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground font-heading mb-4">
+              Compliance by Category
+            </h2>
             {!categoryData ? (
               <Card className="border-dashed border-border/80 bg-muted/20">
                 <CardContent className="p-6 text-center">
@@ -589,335 +491,140 @@ interface DashboardPageProps {
                 </CardContent>
               </Card>
             ) : (
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                 {(Object.entries(categoryData) as [RegCategory, SeverityCounts][]).map(
-                   ([category, counts]) => (
-                     <SummaryCard
-                       key={category}
-                       category={category}
-                       counts={counts}
-                     />
-                   )
-                 )}
-               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {(Object.entries(categoryData) as [RegCategory, SeverityCounts][]).map(
+                  ([category, counts]) => (
+                    <SummaryCard
+                      key={category}
+                      category={category}
+                      counts={counts}
+                    />
+                  )
+                )}
+              </div>
             )}
           </div>
 
-           {latestAnalysis?.aiAnalysis && (
-             <div className="mt-8 pt-6 border-t">
-               <AIAnalysisSection aiAnalysis={latestAnalysis.aiAnalysis} />
-             </div>
-           )}
+          {latestAnalysis?.aiAnalysis && (
+            <div className="mt-8 pt-6 border-t">
+              <AIAnalysisSection aiAnalysis={latestAnalysis.aiAnalysis} />
+            </div>
+          )}
 
-           {multiModalData?.correlation_insights && multiModalData.correlation_insights.length > 0 && (
-             <div className="mt-8 pt-6 border-t">
-               <CorrelationInsights insights={multiModalData.correlation_insights} />
-             </div>
-           )}
+          {multiModalData?.correlation_insights && multiModalData.correlation_insights.length > 0 && (
+            <div className="mt-8 pt-6 border-t">
+              <CorrelationInsights insights={multiModalData.correlation_insights} />
+            </div>
+          )}
 
-           {multiModalData?.conflicting_findings && multiModalData.conflicting_findings.length > 0 && (
-             <div className="mt-6">
-               <ConflictsSection findings={multiModalData.conflicting_findings} />
-             </div>
-           )}
+          {multiModalData?.conflicting_findings && multiModalData.conflicting_findings.length > 0 && (
+            <div className="mt-6">
+              <ConflictsSection findings={multiModalData.conflicting_findings} />
+            </div>
+          )}
 
-           {hasMultiModalData && multiModalData?.timeline_events && multiModalData.timeline_events.length > 0 && (
-             <div className="mt-6">
-               <Card>
-                 <CardHeader className="pb-3">
-                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                     <Clock className="h-5 w-5 text-primary" />
-                     Timeline Events
-                     <Badge variant="outline" className="ml-2">
-                       {multiModalData.timeline_events.length} events
-                     </Badge>
-                   </CardTitle>
-                 </CardHeader>
-                 <CardContent>
-                   <p className="text-sm text-muted-foreground mb-3">
-                     Quick preview of events. Go to the Timeline tab for the full interactive view.
-                   </p>
-                   <Button 
-                     variant="outline" 
-                     size="sm" 
-                     onClick={() => setActiveTab('timeline')}
-                     className="flex items-center gap-1.5"
-                   >
-                     <Clock className="h-4 w-4" />
-                     View Full Timeline
-                   </Button>
-                 </CardContent>
-               </Card>
-             </div>
-           )}
-         </TabsContent>
-
-          <TabsContent value="timeline" className="mt-6 space-y-6">
-            {!hasData || !latestAnalysis ? (
-              <EmptyStateCard
-                icon={Clock}
-                title="No timeline data"
-                description="Upload log files or chart images to generate a unified event timeline."
-                actionLabel="Go to Overview"
-                onActionClick={() => setActiveTab('overview')}
-              />
-            ) : multiModalData?.timeline_events && multiModalData.timeline_events.length > 0 ? (
-              <>
-                {multiModalData.alignment_uncertain && (
-                  <AlignmentUncertaintyBanner
-                    alignmentConfidence={multiModalData.alignment_confidence}
-                    alignmentMethod={multiModalData.alignment_method}
-                  />
-                )}
-                <UnifiedTimeline 
-                  events={multiModalData.timeline_events} 
-                  title="Unified Event Timeline"
-                />
-              </>
-            ) : (
-              <div className="space-y-4">
-                <EmptyStateCard
-                  icon={Clock}
-                  title="No multi-modal timeline"
-                  description="This analysis was created using single-file mode. Upload multiple files in Unified Batch mode to generate a correlated timeline with events from both logs and chart images."
-                  actionLabel="Go to Overview"
-                  onActionClick={() => setActiveTab('overview')}
-                />
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Info className="h-4 w-4 text-muted-foreground" />
-                      About Unified Timelines
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground space-y-2">
-                    <p>
-                      <strong>Unified Batch mode</strong> (in FileUploadZone) enables:
-                    </p>
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>Correlating events from multiple log files</li>
-                      <li>Time-aligning chart images with log timelines</li>
-                      <li>Detecting cross-source conflicts</li>
-                      <li>Generating a single unified timeline view</li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="temperature" className="mt-6 space-y-6">
-           {!temperatureData || temperatureData.length === 0 ? (
-             <EmptyStateCard
-               icon={Thermometer}
-               title="No temperature data available"
-               description="Temperature readings will appear here after uploading device log files or chart images."
-               actionLabel="Go to Overview"
-               onActionClick={() => setActiveTab('overview')}
-             />
-           ) : (
-            <>
-              {dataSourceBadge && (
-                <div className="flex items-center gap-2">
-                  {dataSourceBadge}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {avgTempA && (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Thermometer className="h-4 w-4 text-primary" />
-                        Sensor A (Avg)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p
-                        className={cn(
-                          'text-2xl font-bold',
-                          Number(avgTempA) >= safeRange.min &&
-                            Number(avgTempA) <= safeRange.max
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
-                        )}
-                      >
-                        {avgTempA}°C
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {excursions.length > 0 ? (
-                          <span className="text-red-600 dark:text-red-400">
-                            {excursions.length} excursions detected
-                          </span>
-                        ) : (
-                          <span className="text-green-600 dark:text-green-400">Within safe range</span>
-                        )}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {avgTempB !== null && (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Thermometer className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                        Sensor B (Avg)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p
-                        className={cn(
-                          'text-2xl font-bold',
-                          Number(avgTempB) >= safeRange.min &&
-                            Number(avgTempB) <= safeRange.max
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
-                        )}
-                      >
-                        {avgTempB}°C
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {excursionsB.length > 0 ? (
-                          <span className="text-red-600 dark:text-red-400">
-                            {excursionsB.length} excursions detected
-                          </span>
-                        ) : (
-                          <span className="text-green-600 dark:text-green-400">Within safe range</span>
-                        )}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Safe Range</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold text-foreground">
-                      {safeRange.min}°C - {safeRange.max}°C
-                    </p>
-                    <p className="text-xs text-muted-foreground">REG-TEMP requirement</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      {excursions.length === 0 && excursionsB.length === 0 ? (
-                        <Badge variant="low">Compliant</Badge>
-                      ) : (
-                        <Badge variant="critical">
-                          {excursions.length + excursionsB.length} Issues
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      From {temperatureData.length} readings
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {showLoading ? (
-                <TemperatureChartSkeleton />
-              ) : (
-                <TemperatureChart data={temperatureData} />
-              )}
-
-              <Card className="border-border bg-muted/40">
-                <CardHeader className="pb-2">
+          {hasMultiModalData && multiModalData?.timeline_events && multiModalData.timeline_events.length > 0 && (
+            <div className="mt-6">
+              <Card>
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Info className="h-4 w-4 text-muted-foreground" />
-                    About Temperature Monitoring
+                    <Clock className="h-5 w-5 text-primary" />
+                    Timeline Events
+                    <Badge variant="outline" className="ml-2">
+                      {multiModalData.timeline_events.length} events
+                    </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-muted-foreground">
-                    <div>
-                      <h4 className="font-medium text-foreground mb-2">
-                        REG-TEMP Requirements
-                      </h4>
-                      <ul className="space-y-1">
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>REG-TEMP-1:</strong> Temperature must stay within
-                            2-8°C range
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>REG-TEMP-2:</strong> Excursions must recover
-                            within 30 minutes
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>REG-TEMP-3:</strong> Temperature recovery
-                            verification
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-foreground mb-2">
-                        Chart Features
-                      </h4>
-                      <ul className="space-y-1">
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>Green band:</strong> Safe temperature range
-                            (2-8°C)
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>Red/Orange highlights:</strong> Excursions outside
-                            safe range
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>Brush control:</strong> Drag to zoom into specific
-                            time ranges
-                          </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>
-                            <strong>Legend toggle:</strong> Click legend items to
-                            show/hide sensor data
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Quick preview of events. Go to the Timeline tab for the full interactive view.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setActiveTab('timeline')}
+                    className="flex items-center gap-1.5"
+                  >
+                    <Clock className="h-4 w-4" />
+                    View Full Timeline
+                  </Button>
                 </CardContent>
               </Card>
-            </>
+            </div>
           )}
         </TabsContent>
 
-         <TabsContent value="violations" className="mt-6 space-y-6">
-           {!violations ? (
-             <EmptyStateCard
-               icon={AlertTriangle}
-               title="No violations data"
-               description="Upload log files to analyze for compliance violations."
-               actionLabel="Go to Overview"
-               onActionClick={() => setActiveTab('overview')}
-             />
-           ) : (
+        <TabsContent value="graphs" className="mt-6 space-y-6">
+          <GraphSection
+            telemetrySeries={telemetrySeries}
+            isLoading={showLoading}
+          />
+        </TabsContent>
+
+        <TabsContent value="timeline" className="mt-6 space-y-6">
+          {!hasData || !latestAnalysis ? (
+            <EmptyStateCard
+              icon={Clock}
+              title="No timeline data"
+              description="Upload log files or chart images to generate a unified event timeline."
+              actionLabel="Go to Overview"
+              onActionClick={() => setActiveTab('overview')}
+            />
+          ) : multiModalData?.timeline_events && multiModalData.timeline_events.length > 0 ? (
+            <>
+              {multiModalData.alignment_uncertain && (
+                <AlignmentUncertaintyBanner
+                  alignmentConfidence={multiModalData.alignment_confidence}
+                  alignmentMethod={multiModalData.alignment_method}
+                />
+              )}
+              <UnifiedTimeline 
+                events={multiModalData.timeline_events} 
+                title="Unified Event Timeline"
+              />
+            </>
+          ) : (
+            <div className="space-y-4">
+              <EmptyStateCard
+                icon={Clock}
+                title="No multi-modal timeline"
+                description="This analysis was created using single-file mode. Upload multiple files in Unified Batch mode to generate a correlated timeline with events from both logs and chart images."
+                actionLabel="Go to Overview"
+                onActionClick={() => setActiveTab('overview')}
+              />
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                    About Unified Timelines
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground space-y-2">
+                  <p>
+                    <strong>Unified Batch mode</strong> (in FileUploadZone) enables:
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Correlating events from multiple log files</li>
+                    <li>Time-aligning chart images with log timelines</li>
+                    <li>Detecting cross-source conflicts</li>
+                    <li>Generating a single unified timeline view</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="violations" className="mt-6 space-y-6">
+          {!violations ? (
+            <EmptyStateCard
+              icon={AlertTriangle}
+              title="No violations data"
+              description="Upload log files to analyze for compliance violations."
+              actionLabel="Go to Overview"
+              onActionClick={() => setActiveTab('overview')}
+            />
+          ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="border-red-200 bg-red-50 dark:bg-red-950/30">
@@ -976,24 +683,24 @@ interface DashboardPageProps {
                 </Card>
               </div>
 
-               <ViolationsTable
-                 data={violations || []}
-                 title="All Violations"
-               />
+              <ViolationsTable
+                data={violations || []}
+                title="All Violations"
+              />
             </>
           )}
         </TabsContent>
 
-         <TabsContent value="history" className="mt-6 space-y-6">
-           {analysisHistory.length === 0 ? (
-             <EmptyStateCard
-               icon={History}
-               title="No analysis history"
-               description="Upload files to create analysis records."
-               actionLabel="Go to Overview"
-               onActionClick={() => setActiveTab('overview')}
-             />
-           ) : (
+        <TabsContent value="history" className="mt-6 space-y-6">
+          {analysisHistory.length === 0 ? (
+            <EmptyStateCard
+              icon={History}
+              title="No analysis history"
+              description="Upload files to create analysis records."
+              actionLabel="Go to Overview"
+              onActionClick={() => setActiveTab('overview')}
+            />
+          ) : (
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1001,23 +708,23 @@ interface DashboardPageProps {
                     <History className="h-5 w-5 text-primary" />
                     Analysis History ({analysisHistory.length} records)
                   </CardTitle>
-                   {analysisHistory.length > 0 && (
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       onClick={async () => {
-                         if (
-                           confirm(`Sigur vrei să ștergi TOATE cele ${analysisHistory.length} analize?\nAceastă acțiune este IREVERSIBILĂ!`)
-                         ) {
-                           await clearHistory()
-                         }
-                       }}
-                       className="touch-target"
-                     >
-                       <Trash2 className="h-4 w-4 mr-2" />
-                       Clear All
-                     </Button>
-                   )}
+                  {analysisHistory.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (
+                          confirm(`Sigur vrei să ștergi TOATE cele ${analysisHistory.length} analize?\nAceastă acțiune este IREVERSIBILĂ!`)
+                        ) {
+                          await clearHistory()
+                        }
+                      }}
+                      className="touch-target"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear All
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
@@ -1063,10 +770,10 @@ interface DashboardPageProps {
                         return (
                           <tr
                             key={index}
-                             className={cn(
-                               'border-b border-slate-100 dark:border-slate-800 transition-colors',
-                               isActive ? 'bg-primary/5' : 'hover:bg-muted/40'
-                             )}
+                            className={cn(
+                              'border-b border-slate-100 dark:border-slate-800 transition-colors',
+                              isActive ? 'bg-primary/5' : 'hover:bg-muted/40'
+                            )}
                           >
                             <td className="py-3 px-4 text-sm">
                               <span className="font-medium">{index + 1}</span>
@@ -1076,19 +783,19 @@ interface DashboardPageProps {
                                 {analysis.deviceId || 'Unknown'}
                               </span>
                             </td>
-                             <td className="py-3 px-4 text-sm text-muted-foreground">
-                               {parseTimestampUTC(analysis.analyzedAt).toLocaleString()}
-                             </td>
+                            <td className="py-3 px-4 text-sm text-muted-foreground">
+                              {parseTimestampUTC(analysis.analyzedAt).toLocaleString()}
+                            </td>
                             <td className="py-3 px-4">
                               <span
                                 className={cn(
-                                 'text-sm font-bold',
-                                   score >= 90
-                                     ? 'text-green-600 dark:text-green-400'
-                                     : score >= 70
-                                       ? 'text-yellow-600 dark:text-yellow-400'
-                                       : 'text-red-600 dark:text-red-400'
-                                 )}
+                                  'text-sm font-bold',
+                                  score >= 90
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : score >= 70
+                                      ? 'text-yellow-600 dark:text-yellow-400'
+                                      : 'text-red-600 dark:text-red-400'
+                                )}
                               >
                                 {score}%
                               </span>
@@ -1122,25 +829,25 @@ interface DashboardPageProps {
                                     <span className="text-xs">Load</span>
                                   </Button>
                                 )}
-                                 {analysisHistory.length > 0 && (
-                                   <Button
-                                     variant="ghost"
-                                     size="sm"
-                                     onClick={async () => {
-                                       if (
-                                         confirm(
-                                           'Remove this analysis from history?'
-                                         )
-                                       ) {
-                                         await removeAnalysis(index)
-                                       }
-                                     }}
-                                     className="h-8 px-2 touch-target text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-400 dark:text-red-400 hover:bg-red-50 dark:bg-red-950/30 dark:hover:bg-red-950/50"
-                                   >
-                                     <X className="h-4 w-4" />
-                                     <span className="sr-only">Remove</span>
-                                   </Button>
-                                 )}
+                                {analysisHistory.length > 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={async () => {
+                                      if (
+                                        confirm(
+                                          'Remove this analysis from history?'
+                                        )
+                                      ) {
+                                        await removeAnalysis(index)
+                                      }
+                                    }}
+                                    className="h-8 px-2 touch-target text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-400 dark:text-red-400 hover:bg-red-50 dark:bg-red-950/30 dark:hover:bg-red-950/50"
+                                  >
+                                    <X className="h-4 w-4" />
+                                    <span className="sr-only">Remove</span>
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1151,13 +858,13 @@ interface DashboardPageProps {
                 </div>
               </CardContent>
             </Card>
-           )}
-         </TabsContent>
+          )}
+        </TabsContent>
 
-         <TabsContent value="rules" className="mt-6">
-           <RulesList />
-         </TabsContent>
-       </Tabs>
+        <TabsContent value="rules" className="mt-6">
+          <RulesList />
+        </TabsContent>
+      </Tabs>
 
       {hasData && latestAnalysis && (
         <AIChat
