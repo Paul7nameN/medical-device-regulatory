@@ -88,6 +88,7 @@ History of all significant changes in the project.
 - **React Closure Issue**: Fixed `useRef` for `extractedRulesRef` to preserve rules between uploads
 - **MD File Support**: Fixed `.md` file visibility and detection as constraints documents
 - **Disabled Click**: Disabled click on category cards in Overview (prevents navigation issues)
+- **AI Analysis for Chart-Only Mode**: Multi-modal endpoint `/api/multimodal/analyze` now runs AI analysis for chart-only uploads (previously AI only ran when log files were present). Uses `AIAnalystEngine.analyze_chart()` for chart data, matching behavior of standalone `/api/ai/analyze-chart` endpoint.
 
 ---
 

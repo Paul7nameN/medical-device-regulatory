@@ -191,7 +191,10 @@ class TextAnalyzer:
                 "extracted_at": datetime.now(),
                 "model_used": settings.model_text_analysis,
                 "average_confidence": round(avg_confidence, 2),
-                "rule_count": len(rules_list)
+                "rule_count": len(rules_list),
+                "filename": filename,
+                "ruleset_name": filename or "Custom Rules",
+                "source": "extracted",
             },
             "raw_response": response,
             "duration_seconds": duration

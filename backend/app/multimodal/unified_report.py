@@ -148,6 +148,10 @@ class UnifiedReportGenerator:
                     else str(finding.severity)
                 )
                 
+                finding_source: str = "logs"
+                if hasattr(finding, 'data_source') and finding.data_source:
+                    finding_source = finding.data_source
+                
                 events.append(TimelineEvent(
                     timestamp=finding.timestamp,
                     event_type="violation",
@@ -155,7 +159,7 @@ class UnifiedReportGenerator:
                     severity=finding.severity,
                     description=f"{finding.rule_id}: {finding.message}",
                     details={
-                        "source": "logs",
+                        "source": finding_source,
                         "severity": severity_value,
                         "evidence_count": len(finding.evidence),
                     },

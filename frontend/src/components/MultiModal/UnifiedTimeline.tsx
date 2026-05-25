@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, SeverityBadge, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui'
 import { 
   ChevronDown, ChevronUp, Clock, Filter, X,
-  Activity, AlertTriangle, CheckCircle, Database, Image, GitMerge
+  Activity, AlertTriangle, CheckCircle, Database, Image, GitMerge,
+  ChevronLeft, ChevronRight, AlertCircle
 } from 'lucide-react'
 import type { TimelineEvent, DataSource } from '@/lib/api'
+import { compareSeverity } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 
 interface UnifiedTimelineProps {
@@ -207,9 +209,20 @@ export function UnifiedTimeline({
   const [severityFilter, setSeverityFilter] = useState<EventFilter>('all')
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
   const [showAll, setShowAll] = useState(false)
+  const [showOnlyViolations, setShowOnlyViolations] = useState(true)
+  const [currentViolationIndex, setCurrentViolationIndex] = useState(0)
+
+   const isViolationEvent = useCallback((event: TimelineEvent): boolean => {
+     return event.event_type.toLowerCase().includes('violation') || 
+            (!!event.severity && event.severity !== 'info' && !event.event_type.toLowerCase().includes('log_'))
+   }, [])
 
   const filteredEvents = useMemo(() => {
     let result = [...events]
+    
+    if (showOnlyViolations) {
+      result = result.filter(isViolationEvent)
+    }
     
     if (severityFilter !== 'all') {
       result = result.filter((e) => e.severity === severityFilter)
@@ -222,10 +235,18 @@ export function UnifiedTimeline({
       })
     }
     
-    return result.sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    )
-  }, [events, severityFilter, sourceFilter])
+    return result.sort((a, b) => {
+      const severityCompare = compareSeverity(a.severity || 'info', b.severity || 'info')
+      if (severityCompare !== 0) {
+        return severityCompare
+      }
+      return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    })
+  }, [events, severityFilter, sourceFilter, showOnlyViolations, isViolationEvent])
+
+  const violationEvents = useMemo(() => {
+    return filteredEvents.filter(isViolationEvent)
+  }, [filteredEvents, isViolationEvent])
 
   const displayEvents = showAll 
     ? filteredEvents 
@@ -236,9 +257,22 @@ export function UnifiedTimeline({
   const clearFilters = () => {
     setSeverityFilter('all')
     setSourceFilter('all')
+    setShowOnlyViolations(false)
   }
 
-  const hasFilters = severityFilter !== 'all' || sourceFilter !== 'all'
+   const hasFilters = severityFilter !== 'all' || sourceFilter !== 'all' || showOnlyViolations
+
+   const goToPreviousViolation = () => {
+    if (currentViolationIndex > 0) {
+      setCurrentViolationIndex(currentViolationIndex - 1)
+    }
+  }
+
+  const goToNextViolation = () => {
+    if (currentViolationIndex < violationEvents.length - 1) {
+      setCurrentViolationIndex(currentViolationIndex + 1)
+    }
+  }
 
   if (!events || events.length === 0) {
     return (
@@ -258,18 +292,84 @@ export function UnifiedTimeline({
 
   const criticalCount = events.filter((e) => e.severity === 'critical').length
   const highCount = events.filter((e) => e.severity === 'high').length
+  const mediumCount = events.filter((e) => e.severity === 'medium').length
+  const lowCount = events.filter((e) => e.severity === 'low').length
+  const violationCount = violationEvents.length
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-3 w-full min-w-0', className)}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h3 className="text-base font-medium flex items-center gap-2">
-          <Clock className="h-5 w-5 text-primary" />
-          {title} ({filteredEvents.length})
-          {criticalCount > 0 && <Badge variant="critical">Critical: {criticalCount}</Badge>}
-          {highCount > 0 && <Badge variant="high">High: {highCount}</Badge>}
-        </h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-base font-medium flex items-center gap-2">
+            <Clock className="h-5 w-5 text-primary" />
+            {title} ({filteredEvents.length})
+          </h3>
+          
+          {violationCount > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {criticalCount > 0 && (
+                <Badge variant="critical" className="flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Critical: {criticalCount}
+                </Badge>
+              )}
+              {highCount > 0 && (
+                <Badge variant="high" className="flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  High: {highCount}
+                </Badge>
+              )}
+              {mediumCount > 0 && (
+                <Badge variant="medium" className="flex items-center gap-1">
+                  Medium: {mediumCount}
+                </Badge>
+              )}
+              {lowCount > 0 && (
+                <Badge variant="low" className="flex items-center gap-1">
+                  Low: {lowCount}
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
         
         <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showOnlyViolations}
+              onChange={(e) => setShowOnlyViolations(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            <span className="text-xs font-medium">Show only violations</span>
+          </label>
+
+          {violationCount > 0 && (
+            <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={goToPreviousViolation}
+                disabled={currentViolationIndex === 0}
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </Button>
+              <span className="text-xs font-mono min-w-[60px] text-center">
+                {currentViolationIndex + 1}/{violationCount}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={goToNextViolation}
+                disabled={currentViolationIndex === violationCount - 1}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+
           <Select
             value={severityFilter}
             onValueChange={(v) => setSeverityFilter(v as EventFilter)}
@@ -304,12 +404,18 @@ export function UnifiedTimeline({
             </SelectContent>
           </Select>
 
-          {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2">
-              <X className="h-3.5 w-3.5 mr-1" />
-              <span className="text-xs">Clear</span>
-            </Button>
-          )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={clearFilters} 
+            className={cn(
+              "h-8 px-2 transition-opacity",
+              !hasFilters && "invisible pointer-events-none"
+            )}
+          >
+            <X className="h-3.5 w-3.5 mr-1" />
+            <span className="text-xs">Clear</span>
+          </Button>
         </div>
       </div>
 
@@ -329,6 +435,7 @@ export function UnifiedTimeline({
                  key={`${event.timestamp}-${idx}`}
                  event={event}
                  isLast={idx === displayEvents.length - 1 && !showAll}
+                 _index={idx}
                />
              ))}
           </div>

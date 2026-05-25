@@ -47,6 +47,11 @@ class BaseRule(ABC):
                     explanation=f"Log entry: {log.raw_value}"
                 ))
 
+        timestamp = datetime.now()
+        if evidence_logs and len(evidence_logs) > 0:
+            sorted_evidence = sorted(evidence_logs, key=lambda x: x.timestamp)
+            timestamp = sorted_evidence[0].timestamp
+
         return Finding(
             rule_id=self.rule_id,
             rule_description=self.description,
@@ -55,7 +60,7 @@ class BaseRule(ABC):
             passed=passed,
             message=message,
             evidence=evidence,
-            timestamp=datetime.now(),
+            timestamp=timestamp,
             remediation_hint=remediation_hint,
             needs_visual_verification=needs_visual_verification,
             data_source=self.data_source.value if hasattr(self.data_source, 'value') else self.data_source,

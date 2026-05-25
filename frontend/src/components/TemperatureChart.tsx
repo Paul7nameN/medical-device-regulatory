@@ -5,7 +5,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ReferenceLine,
   Area,
@@ -58,6 +57,7 @@ function CustomTooltip({
     value: number
     color: string
     name: string
+    dataKey?: string
     payload?: ChartDataPoint
   }>
   label?: string
@@ -68,14 +68,24 @@ function CustomTooltip({
     return (
       <div className="bg-white dark:bg-card border border-border rounded-lg shadow-lg p-3 min-w-[180px]">
         <p className="text-sm font-medium text-foreground mb-2">{label}</p>
-        {payload.map((entry, index) => {
-          if (entry.name === 'excursionA' || entry.name === 'excursionB' || entry.name === 'Discrepancy') return null
-          return (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              <span className="font-medium">{entry.name}:</span> {entry.value}°C
-            </p>
-          )
-        })}
+         {payload.map((entry, index) => {
+           const dataKey = entry.dataKey
+           if (
+             !dataKey ||
+             dataKey === 'safeMin' ||
+             dataKey === 'safeRangeBand' ||
+             dataKey === 'excursionA' ||
+             dataKey === 'excursionB' ||
+             dataKey === 'discrepancy'
+           ) {
+             return null
+           }
+           return (
+             <p key={index} className="text-sm" style={{ color: entry.color }}>
+               <span className="font-medium">{entry.name}:</span> {entry.value}°C
+             </p>
+           )
+         })}
         {pointData?.hasDiscrepancy && (
           <div className="mt-2 pt-2 border-t border-border">
             <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
@@ -103,7 +113,7 @@ export function TemperatureChart({
   className,
 }: TemperatureChartProps) {
   const [showLegend, setShowLegend] = useState(true)
-  const [visibleSensors, setVisibleSensors] = useState({ sensorA: true, sensorB: true })
+  const [visibleSensors] = useState({ sensorA: true, sensorB: true })
   const [chartKey, setChartKey] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
   const { theme } = useTheme()
@@ -143,9 +153,6 @@ export function TemperatureChart({
     }
   }, [data.length, isMobile])
 
-  const toggleSensor = (sensor: 'sensorA' | 'sensorB') => {
-    setVisibleSensors((prev) => ({ ...prev, [sensor]: !prev[sensor] }))
-  }
 
   const handleResetZoom = useCallback(() => {
     setChartKey((prev) => prev + 1)
@@ -336,6 +343,7 @@ export function TemperatureChart({
                  stroke="none"
                  fill="transparent"
                  isAnimationActive={false}
+                 legendType="none"
                />
                <Area
                  type="monotone"
@@ -344,6 +352,7 @@ export function TemperatureChart({
                  stroke="none"
                  fill="url(#safeRangeGradient)"
                  isAnimationActive={false}
+                 legendType="none"
                />
 
                <ReferenceLine
@@ -359,59 +368,59 @@ export function TemperatureChart({
                  strokeOpacity={0.6}
                />
 
-               {visibleSensors.sensorA && (
+                {visibleSensors.sensorA && (
+                  <Line
+                    type="monotone"
+                    dataKey="sensorA"
+                    name="Primary Temperature"
+                    stroke={chartColors.sensorA}
+                    strokeWidth={2}
+                    dot={{ fill: chartColors.sensorA, r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                )}
+
+                {visibleSensors.sensorB && hasSensorB && (
+                  <Line
+                    type="monotone"
+                    dataKey="sensorB"
+                    name="Secondary Temperature"
+                    stroke={chartColors.sensorB}
+                    strokeWidth={2}
+                    dot={{ fill: chartColors.sensorB, r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                )}
+
+                {visibleSensors.sensorA && (
+                  <Line
+                    type="monotone"
+                    dataKey="excursionA"
+                    stroke={chartColors.excursionA}
+                    strokeWidth={3}
+                    dot={{ fill: chartColors.excursionA, r: 4 }}
+                    legendType="none"
+                  />
+                )}
+
+                {visibleSensors.sensorB && hasSensorB && (
+                  <Line
+                    type="monotone"
+                    dataKey="excursionB"
+                    stroke={chartColors.excursionB}
+                    strokeWidth={3}
+                    dot={{ fill: chartColors.excursionB, r: 4 }}
+                    legendType="none"
+                  />
+                )}
+
+               {hasSensorB && (
                  <Line
                    type="monotone"
-                   dataKey="sensorA"
-                   name="Sensor A"
-                   stroke={chartColors.sensorA}
-                   strokeWidth={2}
-                   dot={{ fill: chartColors.sensorA, r: 3 }}
-                   activeDot={{ r: 5 }}
-                 />
-               )}
-
-               {visibleSensors.sensorB && hasSensorB && (
-                 <Line
-                   type="monotone"
-                   dataKey="sensorB"
-                   name="Sensor B"
-                   stroke={chartColors.sensorB}
-                   strokeWidth={2}
-                   dot={{ fill: chartColors.sensorB, r: 3 }}
-                   activeDot={{ r: 5 }}
-                 />
-               )}
-
-               {visibleSensors.sensorA && (
-                 <Line
-                   type="monotone"
-                   dataKey="excursionA"
-                   name="Excursion (A)"
-                   stroke={chartColors.excursionA}
-                   strokeWidth={3}
-                   dot={{ fill: chartColors.excursionA, r: 4 }}
-                 />
-               )}
-
-               {visibleSensors.sensorB && hasSensorB && (
-                 <Line
-                   type="monotone"
-                   dataKey="excursionB"
-                   name="Excursion (B)"
-                   stroke={chartColors.excursionB}
-                   strokeWidth={3}
-                   dot={{ fill: chartColors.excursionB, r: 4 }}
-                 />
-               )}
-
-              {hasSensorB && (
-                <Line
-                  type="monotone"
-                  dataKey="discrepancy"
-                  name="Discrepancy"
-                  stroke="none"
-                  strokeWidth={0}
+                   dataKey="discrepancy"
+                   stroke="none"
+                   strokeWidth={0}
+                   legendType="none"
                    dot={(props) => {
                      const { cx, cy, payload } = props
                      if (!payload?.hasDiscrepancy) return <circle cx={cx} cy={cy} r={0} />
@@ -430,54 +439,64 @@ export function TemperatureChart({
                 />
               )}
 
-              <Tooltip content={<CustomTooltip />} />
+               <Tooltip content={<CustomTooltip />} />
 
-              {showLegend && (
-                <Legend
-                  wrapperStyle={{ paddingTop: '20px' }}
-                  onClick={(e) => {
-                    if (e.dataKey === 'sensorA' || e.value === 'Sensor A')
-                      toggleSensor('sensorA')
-                    if (e.dataKey === 'sensorB' || e.value === 'Sensor B')
-                      toggleSensor('sensorB')
-                  }}
-                  formatter={(value) => (
-                    <span className="cursor-pointer hover:underline">{value}</span>
-                  )}
-                />
-              )}
-
-               <Brush
+                <Brush
                  dataKey="time"
                  height={30}
                  stroke={chartColors.brushStroke}
                  fill={chartColors.brushFill}
                  travellerWidth={10}
                />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+             </ComposedChart>
+           </ResponsiveContainer>
+         </div>
 
-        {hasSensorB && (
-          <div className="mt-4 p-3 bg-muted/40 rounded-lg text-sm text-muted-foreground">
-            <p className="flex flex-wrap items-center gap-2">
-              <span className="text-xs bg-border px-2 py-0.5 rounded">Tip</span>
-              <span>
-                Click legend items to toggle sensor visibility.
-              </span>
-              <span>
-                Excursions outside safe range ({safeRange.min}°C - {safeRange.max}°C) are highlighted in red/orange.
-              </span>
-              <span className="text-amber-700 dark:text-amber-400">
-                 Amber circles indicate sensor discrepancies ({'>'} {DISCREPANCY_THRESHOLD}°C).
-              </span>
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+         {showLegend && (
+           <div className="mt-4 flex flex-wrap items-center justify-center gap-6 text-sm">
+             <div className="flex items-center gap-2">
+               <div
+                 className="w-4 h-1 rounded-full"
+                 style={{ backgroundColor: chartColors.sensorA }}
+               />
+               <span className="text-muted-foreground">Primary Temperature</span>
+             </div>
+             {hasSensorB && (
+               <div className="flex items-center gap-2">
+                 <div
+                   className="w-4 h-1 rounded-full"
+                   style={{ backgroundColor: chartColors.sensorB }}
+                 />
+                 <span className="text-muted-foreground">Secondary Temperature</span>
+               </div>
+             )}
+             <div className="flex items-center gap-2">
+               <div
+                 className="w-3 h-3 rounded-full"
+                 style={{ backgroundColor: chartColors.excursionA }}
+               />
+               <span className="text-muted-foreground">Out of Safe Range</span>
+             </div>
+           </div>
+         )}
+
+           <div className="mt-4 p-3 bg-muted/40 rounded-lg text-sm text-muted-foreground">
+               <p className="flex flex-wrap items-center gap-2">
+                 <span className="text-xs bg-border px-2 py-0.5 rounded">Info</span>
+                 <span>
+                   Values outside safe range ({safeRange.min}°C - {safeRange.max}°C) are highlighted in red.
+                 </span>
+                 {hasSensorB && (
+                   <span className="text-amber-700 dark:text-amber-400">
+                      Amber circles indicate sensor discrepancies ({'>'} {DISCREPANCY_THRESHOLD}°C).
+                   </span>
+                 )}
+               </p>
+            </div>
+       </CardContent>
+     </Card>
+   )
+ }
 
 export function TemperatureChartSkeleton() {
   return (

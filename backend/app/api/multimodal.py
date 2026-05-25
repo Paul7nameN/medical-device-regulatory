@@ -218,10 +218,12 @@ async def run_multi_modal_analysis(
         if constraints_files_data and options.extract_rules and settings.ai_enabled:
             try:
                 all_doc_texts = []
+                constraints_filenames = []
                 for file_id, file_bytes, filename in constraints_files_data:
                     try:
                         text = file_bytes.decode('utf-8')
                         all_doc_texts.append(text)
+                        constraints_filenames.append(filename)
                         sources.append(SourceFile(
                             id=file_id,
                             name=filename,
@@ -233,14 +235,23 @@ async def run_multi_modal_analysis(
                 
                 if all_doc_texts:
                     combined_text = "\n\n---\n\n".join(all_doc_texts)
+                    ruleset_filename = (
+                        constraints_filenames[0] 
+                        if len(constraints_filenames) == 1 
+                        else f"{len(constraints_filenames)} constraints documents"
+                    )
+                    
                     text_analyzer = TextAnalyzer()
                     
-                    rules_result = await text_analyzer.extract_rules(combined_text)
+                    rules_result = await text_analyzer.extract_rules(
+                        document_text=combined_text,
+                        filename=ruleset_filename,
+                    )
                     
                     if rules_result.get("success") and rules_result.get("rules"):
                         extracted_rules = rules_result["rules"]
                         ruleset_meta = rules_result.get("meta")
-                        logger.info(f"Extracted {len(extracted_rules)} rules from constraints documents")
+                        logger.info(f"Extracted {len(extracted_rules)} rules from constraints documents: {ruleset_filename}")
             
             except Exception as e:
                 logger.warning(f"Rule extraction failed: {e}")
@@ -297,6 +308,9 @@ async def run_multi_modal_analysis(
                             end_time=chart_result.time_range_end,
                             uncertain=chart_result.confidence < 0.7 if hasattr(chart_result, 'confidence') else True,
                         )
+                        
+                        if chart_result.data_points:
+                            aligned_chart_points.extend(chart_result.data_points)
                     
                     sources.append(chart_source)
                     
@@ -313,7 +327,7 @@ async def run_multi_modal_analysis(
 
         _update_session_status(session_id, AnalysisStatus.PROCESSING, "Running regulatory validation", 0.55)
 
-        if not merged_entries and not chart_violations:
+        if not merged_entries and not chart_violations and not chart_analysis_results:
             raise HTTPException(
                 status_code=400,
                 detail="No valid data to analyze. Provide log files and/or chart images."
@@ -341,6 +355,73 @@ async def run_multi_modal_analysis(
             except Exception as e:
                 logger.error(f"Regulatory validation failed: {e}")
                 raise
+        elif chart_analysis_results:
+            try:
+                from app.ai.image.converters import (
+                    create_compliance_report_from_chart_result, 
+                    convert_chart_violations_to_findings
+                )
+                from app.models.findings import CategorySummary
+                
+                if len(chart_analysis_results) == 1:
+                    base_report = create_compliance_report_from_chart_result(
+                        chart_analysis_results[0],
+                        device_id="multi-modal-analysis",
+                    )
+                else:
+                    all_findings = []
+                    total_entries = 0
+                    time_range_starts = []
+                    time_range_ends = []
+                    categories: Dict[str, CategorySummary] = {}
+                    
+                    for result in chart_analysis_results:
+                        findings = convert_chart_violations_to_findings(
+                            result.violations,
+                            parent_confidence=result.confidence,
+                            parent_analyzed_at=result.analyzed_at,
+                        )
+                        all_findings.extend(findings)
+                        total_entries += len(result.data_points) if result.data_points else 0
+                        if result.time_range_start:
+                            time_range_starts.append(result.time_range_start)
+                        if result.time_range_end:
+                            time_range_ends.append(result.time_range_end)
+                        
+                        for finding in findings:
+                            cat = finding.category
+                            if cat not in categories:
+                                categories[cat] = CategorySummary(passed=0, failed=0, total=0)
+                            if finding.passed:
+                                categories[cat].passed += 1
+                            else:
+                                categories[cat].failed += 1
+                            categories[cat].total += 1
+                    
+                    failed_count = len(all_findings)
+                    critical_count = sum(1 for f in all_findings if f.severity == Severity.CRITICAL)
+                    passed_count = 0
+                    
+                    base_report = ComplianceReport(
+                        device_id="multi-modal-analysis",
+                        analyzed_at=datetime.now(),
+                        total_entries=total_entries,
+                        time_range_start=min(time_range_starts) if time_range_starts else None,
+                        time_range_end=max(time_range_ends) if time_range_ends else None,
+                        summary=categories,
+                        findings=all_findings,
+                        passed_count=passed_count,
+                        failed_count=failed_count,
+                        critical_count=critical_count,
+                    )
+                
+                logger.info(
+                    f"Chart-based regulatory validation complete: {len(base_report.findings)} findings, "
+                    f"{base_report.failed_count} failed"
+                )
+            except Exception as e:
+                logger.error(f"Chart-based regulatory validation failed: {e}")
+                raise
 
         _update_session_status(session_id, AnalysisStatus.PROCESSING, "Performing temporal correlation", 0.70)
 
@@ -365,19 +446,26 @@ async def run_multi_modal_analysis(
 
         _update_session_status(session_id, AnalysisStatus.PROCESSING, "Generating unified report", 0.85)
 
+        chart_violations_for_report = chart_violations
+        if not merged_entries:
+            chart_violations_for_report = []
+            logger.info("Not using chart_violations separately - they are already in base_report (chart-only mode)")
+
         if base_report:
             try:
-                if correlation_result:
+                if correlation_result or chart_violations_for_report or aligned_chart_points:
+                    from app.models.multimodal import CorrelationSummary
+                    
                     final_report = report_generator.generate_unified_report(
                         regulatory_report=base_report,
                         log_entries=merged_entries,
                         sources=sources,
-                        correlated_findings=correlation_result.correlated_findings,
-                        conflicting_findings=correlation_result.conflicting_findings,
-                        correlation_summary=correlation_result.correlation_summary,
-                        correlation_insights=correlation_result.correlation_insights,
+                        correlated_findings=correlation_result.correlated_findings if correlation_result else [],
+                        conflicting_findings=correlation_result.conflicting_findings if correlation_result else [],
+                        correlation_summary=correlation_result.correlation_summary if correlation_result else CorrelationSummary(),
+                        correlation_insights=correlation_result.correlation_insights if correlation_result else [],
                         aligned_chart_points=aligned_chart_points,
-                        chart_violations=chart_violations,
+                        chart_violations=chart_violations_for_report,
                         alignment_confidence=alignment_confidence,
                         alignment_uncertain=alignment_uncertain,
                     )
@@ -411,6 +499,14 @@ async def run_multi_modal_analysis(
                     if ruleset_meta:
                         config_dict["_ruleset_meta"] = _to_json_safe(ruleset_meta)
 
+                if aligned_chart_points:
+                    from app.ai.image.converters import convert_temperature_readings_to_data_points
+                    
+                    temp_data = convert_temperature_readings_to_data_points(aligned_chart_points)
+                    if "_latest_analysis_data" not in config_dict:
+                        config_dict["_latest_analysis_data"] = {}
+                    config_dict["_latest_analysis_data"]["temperatureData"] = temp_data
+
                 config_dict = _to_json_safe(config_dict)
 
                 config_dict["_api_session_id"] = session_id
@@ -439,10 +535,18 @@ async def run_multi_modal_analysis(
                     try:
                         from app.ai.analyst.engine import AIAnalystEngine
                         ai_analyst = AIAnalystEngine()
-                        ai_analysis = await ai_analyst.analyze_logs(
-                            logs=merged_entries,
-                            report=final_report,
-                        )
+                        ai_analysis = None
+
+                        if merged_entries:
+                            ai_analysis = await ai_analyst.analyze_logs(
+                                logs=merged_entries,
+                                report=final_report,
+                            )
+                        elif chart_analysis_results:
+                            ai_analysis = await ai_analyst.analyze_chart(
+                                chart_result=chart_analysis_results[0],
+                                report=final_report,
+                            )
 
                         if ai_analysis:
                             await persistence.update_analysis_with_ai(

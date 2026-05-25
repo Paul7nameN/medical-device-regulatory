@@ -7,16 +7,8 @@ import {
   Button,
   Progress,
   Badge,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Tabs,
-  TabsList,
-  TabsTrigger,
 } from '@/components/ui'
-import { Upload, FileText, Image, File, X, CheckCircle2, AlertCircle, Loader2, ChevronDown, Zap, FileCode, FileCheck, Layers, SplitSquareVertical } from 'lucide-react'
+import { Upload, FileText, Image, File, X, CheckCircle2, AlertCircle, Loader2, FileCode, FileCheck, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { UploadFileItem, ValidationResult, ExtractedRule } from '@/lib/api'
 import { logsApi, aiApi, reportsApi, multimodalApi, type RulesetMetaInput, type MultiModalAnalyzeResponse, type MultiModalStatusResponse } from '@/lib/api'
@@ -26,8 +18,6 @@ import {
   extractTemperatureFromChartResult,
   type TemperatureDataPoint 
 } from '@/lib/utils/transformers'
-
-export type UploadMode = 'single' | 'batch'
 
 export type FileIntent = 'log_file' | 'constraints_document' | 'image' | 'unknown'
 
@@ -144,8 +134,6 @@ export function FileUploadZone({
    const extractedRulesRef = useRef<ExtractedRule[] | null>(null)
    const rulesetMetaRef = useRef<RulesetMetaInput | null>(null)
    const mergeWithDefaultRulesRef = useRef(false)
-
-   const [uploadMode, setUploadMode] = useState<UploadMode>('single')
 
    const { refreshHistory, setIsAnalyzing, setError, switchAnalysis, startBatchAnalysis, batchStatus, isAnalyzing } = useAnalysis()
 
@@ -518,40 +506,12 @@ export function FileUploadZone({
    return (
      <Card className={className}>
        <CardHeader className="pb-3">
-         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-           <CardTitle className="text-base font-medium flex items-center gap-2">
-             <Upload className="h-5 w-5 text-primary" />
-             Upload Files
-           </CardTitle>
-           <Tabs
-              value={uploadMode}
-              onValueChange={(v) => {
-                setUploadMode(v as UploadMode)
-              }}
-              className="w-full sm:w-auto"
-            >
-             <TabsList className="w-full sm:w-auto grid grid-cols-2">
-               <TabsTrigger value="single" className="flex items-center gap-1.5">
-                 <SplitSquareVertical className="h-3.5 w-3.5" />
-                 <span className="text-xs sm:text-sm">Single File</span>
-               </TabsTrigger>
-               <TabsTrigger value="batch" className="flex items-center gap-1.5">
-                 <Layers className="h-3.5 w-3.5" />
-                 <span className="text-xs sm:text-sm">Unified Batch</span>
-               </TabsTrigger>
-             </TabsList>
-           </Tabs>
-         </div>
-         
-         {uploadMode === 'batch' && (
-           <div className="mt-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-lg">
-             <p className="text-xs text-blue-700 dark:text-blue-300">
-               <strong>Unified Batch Mode:</strong> Upload multiple files together for combined analysis. 
-               Logs will be merged, charts will be time-aligned, and all findings will be correlated 
-               in a single unified report.
-             </p>
+           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+             <CardTitle className="text-base font-medium flex items-center gap-2">
+               <Upload className="h-5 w-5 text-primary" />
+               Upload Files
+             </CardTitle>
            </div>
-         )}
          
          {batchStatus && batchStatus.current_step && (
            <div className="mt-3">
@@ -622,60 +582,44 @@ export function FileUploadZone({
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">
-                      {files.length} file{files.length !== 1 ? 's' : ''} selected
-                    </p>
-                    
-                    {uploadMode === 'batch' && (
-                      <>
-                        {fileGroupCounts.log_file > 0 && (
-                          <Badge className={cn("text-xs", FILE_INTENT_COLORS.log_file)}>
-                            <FileText className="h-3 w-3 mr-1" />
-                            {fileGroupCounts.log_file} log{fileGroupCounts.log_file !== 1 ? 's' : ''}
-                          </Badge>
-                        )}
-                        {fileGroupCounts.image > 0 && (
-                          <Badge className={cn("text-xs", FILE_INTENT_COLORS.image)}>
-                            <Image className="h-3 w-3 mr-1" />
-                            {fileGroupCounts.image} chart{fileGroupCounts.image !== 1 ? 's' : ''}
-                          </Badge>
-                        )}
-                        {fileGroupCounts.constraints_document > 0 && (
-                          <Badge className={cn("text-xs", FILE_INTENT_COLORS.constraints_document)}>
-                            <FileCode className="h-3 w-3 mr-1" />
-                            {fileGroupCounts.constraints_document} constraint{fileGroupCounts.constraints_document !== 1 ? 's' : ''}
-                          </Badge>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-sm">
-                    {successCount > 0 && uploadMode === 'single' && (
-                      <span className="text-green-600 flex items-center gap-1">
-                        <CheckCircle2 className="h-4 w-4" />
-                        {successCount} complete
-                      </span>
-                    )}
-                    {isExtractingRules && (
-                      <span className="text-purple-600 flex items-center gap-1">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Extracting rules...
-                      </span>
-                    )}
-                    {uploadingCount > 0 && uploadMode === 'single' && (
-                      <span className="text-primary flex items-center gap-1">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {uploadingCount} uploading
-                      </span>
-                    )}
-                    {isAnalyzing && uploadMode === 'batch' && (
-                       <span className="text-primary flex items-center gap-1">
+                     <p className="text-sm font-medium text-foreground">
+                       {files.length} file{files.length !== 1 ? 's' : ''} selected
+                     </p>
+                     
+                     {fileGroupCounts.log_file > 0 && (
+                       <Badge className={cn("text-xs", FILE_INTENT_COLORS.log_file)}>
+                         <FileText className="h-3 w-3 mr-1" />
+                         {fileGroupCounts.log_file} log{fileGroupCounts.log_file !== 1 ? 's' : ''}
+                       </Badge>
+                     )}
+                     {fileGroupCounts.image > 0 && (
+                       <Badge className={cn("text-xs", FILE_INTENT_COLORS.image)}>
+                         <Image className="h-3 w-3 mr-1" />
+                         {fileGroupCounts.image} chart{fileGroupCounts.image !== 1 ? 's' : ''}
+                       </Badge>
+                     )}
+                     {fileGroupCounts.constraints_document > 0 && (
+                       <Badge className={cn("text-xs", FILE_INTENT_COLORS.constraints_document)}>
+                         <FileCode className="h-3 w-3 mr-1" />
+                         {fileGroupCounts.constraints_document} constraint{fileGroupCounts.constraints_document !== 1 ? 's' : ''}
+                       </Badge>
+                     )}
+                   </div>
+                   
+                   <div className="flex items-center gap-2 text-sm">
+                     {isExtractingRules && (
+                       <span className="text-purple-600 flex items-center gap-1">
                          <Loader2 className="h-4 w-4 animate-spin" />
-                         Analyzing...
+                         Extracting rules...
                        </span>
                      )}
-                  </div>
+                     {isAnalyzing && (
+                        <span className="text-primary flex items-center gap-1">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Analyzing...
+                        </span>
+                      )}
+                   </div>
                 </div>
 
                {extractedRules && (
@@ -804,60 +748,40 @@ export function FileUploadZone({
               ))}
             </div>
 
-             {pendingCount > 0 && (
-                <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                  <button
-                    onClick={() => {
-                      setFiles([])
-                      setExtractedRules(null)
-                      setRulesetMeta(null)
-                      extractedRulesRef.current = null
-                      rulesetMetaRef.current = null
-                    }}
-                    className="text-sm text-muted-foreground hover:text-foreground touch-target"
-                  >
-                    Clear all
-                  </button>
-                  
-                  {uploadMode === 'single' ? (
-                    <Button
-                      onClick={uploadAllFiles}
-                      disabled={uploadingCount > 0}
-                      className="touch-target"
-                    >
-                      {uploadingCount > 0 ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Upload {pendingCount} file{pendingCount !== 1 ? 's' : ''}
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                     <Button
-                       onClick={uploadAllFilesBatch}
-                       disabled={isAnalyzing}
-                       className="touch-target"
-                     >
-                       {isAnalyzing ? (
-                         <>
-                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                           Analyzing...
-                         </>
-                       ) : (
-                         <>
-                           <Layers className="h-4 w-4 mr-2" />
-                           Analyze All Together
-                         </>
-                       )}
-                     </Button>
-                  )}
-               </div>
-             )}
+              {pendingCount > 0 && (
+                 <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                   <button
+                     onClick={() => {
+                       setFiles([])
+                       setExtractedRules(null)
+                       setRulesetMeta(null)
+                       extractedRulesRef.current = null
+                       rulesetMetaRef.current = null
+                     }}
+                     className="text-sm text-muted-foreground hover:text-foreground touch-target"
+                   >
+                     Clear all
+                   </button>
+                   
+                   <Button
+                     onClick={uploadAllFilesBatch}
+                     disabled={isAnalyzing}
+                     className="touch-target"
+                   >
+                     {isAnalyzing ? (
+                       <>
+                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                         Analyzing...
+                       </>
+                     ) : (
+                       <>
+                         <Layers className="h-4 w-4 mr-2" />
+                         Analyze {pendingCount} file{pendingCount !== 1 ? 's' : ''}
+                       </>
+                     )}
+                   </Button>
+                 </div>
+              )}
           </div>
         )}
       </CardContent>
