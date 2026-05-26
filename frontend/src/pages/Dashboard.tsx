@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Tabs,
   TabsList,
@@ -12,7 +12,14 @@ import { ComplianceScore, ComplianceScoreSkeleton } from '@/components/Complianc
 import { GraphSection } from '@/components/GraphSection'
 import { ViolationsTable } from '@/components/ViolationsTable'
 import { ErrorState } from '@/components/ErrorState'
-import { type RegCategory } from '@/lib/api'
+import { 
+  type RegCategory, 
+  type CorrelationInsight, 
+  type ConflictingFinding,
+  type TimelineEvent,
+  type AggregatedComplianceReport,
+  multimodalApi,
+} from '@/lib/api'
 import {
   type SeverityCounts,
   findingsToDetectedViolations,
@@ -23,6 +30,9 @@ import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/compo
 import { AIAnalysisSection } from '@/components/AIAnalysis'
 import { AIChat } from '@/components/AIChat'
 import { RulesList } from '@/components/RulesReference'
+import { CorrelationInsights, ConflictsSection } from '@/components/MultiModal/CorrelationInsights'
+import { UnifiedTimeline } from '@/components/MultiModal/UnifiedTimeline'
+import { AlignmentUncertaintyBanner } from '@/components/AlignmentUncertaintyBanner'
 import {
   Upload,
   BarChart3,
@@ -30,13 +40,30 @@ import {
   AlertTriangle,
   History,
   FileText,
-   X,
-   Trash2,
-   BookOpen,
-   Loader2,
- } from 'lucide-react'
+  X,
+  Trash2,
+  BookOpen,
+  Loader2,
+  Clock,
+  Thermometer,
+  Info,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalysis } from '@/lib/context/AnalysisContext'
+import { REGULATORY_CONSTANTS } from '@/lib/constants'
+import type { TemperatureDataPoint } from '@/components/TemperatureChart'
+
+interface MultiModalData {
+  report?: AggregatedComplianceReport
+  correlation_insights?: CorrelationInsight[]
+  conflicting_findings?: ConflictingFinding[]
+  timeline_events?: TimelineEvent[]
+  alignment_uncertain?: boolean
+  alignment_confidence?: number
+  alignment_method?: string
+}
+
+const safeRange = REGULATORY_CONSTANTS.safeTemperatureRange
 
 function parseTimestampUTC(timestamp: string): Date {
   const hasTimezone = /Z|[+-]\d{2}:\d{2}$/.test(timestamp)
@@ -46,58 +73,56 @@ function parseTimestampUTC(timestamp: string): Date {
   return new Date(timestamp + 'Z')
 }
 
- function EmptyStateCard({
-   icon: Icon,
-   title,
-   description,
-   actionLabel,
-   actionTo,
-   onActionClick,
- }: {
-   icon: React.ElementType
-   title: string
-   description: string
-   actionLabel?: string
-   actionTo?: string
-   onActionClick?: () => void
- }) {
-   return (
-     <Card className="border-dashed border-border/80 bg-muted/20">
-       <CardContent className="p-8 text-center">
-         <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-           <Icon className="h-6 w-6 text-muted-foreground" />
-         </div>
-         <h3 className="text-sm font-medium text-foreground mb-1">{title}</h3>
-         <p className="text-sm text-muted-foreground mb-4">{description}</p>
-         {actionLabel && (
-           onActionClick ? (
-             <Button onClick={onActionClick} size="sm" className="touch-target">
-               <Upload className="h-4 w-4 mr-2" />
-               {actionLabel}
-             </Button>
-           ) : actionTo ? (
-             <Link to={actionTo}>
-               <Button size="sm" className="touch-target">
-                 <Upload className="h-4 w-4 mr-2" />
-                 {actionLabel}
-               </Button>
-             </Link>
-           ) : null
-         )}
-       </CardContent>
-     </Card>
-   )
- }
+function EmptyStateCard({
+  icon: Icon,
+  title,
+  description,
+  actionLabel,
+  actionTo,
+  onActionClick,
+}: {
+  icon: React.ElementType
+  title: string
+  description: string
+  actionLabel?: string
+  actionTo?: string
+  onActionClick?: () => void
+}) {
+  return (
+    <Card className="border-dashed border-border/80 bg-muted/20">
+      <CardContent className="p-8 text-center">
+        <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+          <Icon className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <h3 className="text-sm font-medium text-foreground mb-1">{title}</h3>
+        <p className="text-sm text-muted-foreground mb-4">{description}</p>
+        {actionLabel && (
+          onActionClick ? (
+            <Button onClick={onActionClick} size="sm" className="touch-target">
+              <Upload className="h-4 w-4 mr-2" />
+              {actionLabel}
+            </Button>
+          ) : actionTo ? (
+            <Link to={actionTo}>
+              <Button size="sm" className="touch-target">
+                <Upload className="h-4 w-4 mr-2" />
+                {actionLabel}
+              </Button>
+            </Link>
+          ) : null
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 interface DashboardPageProps {
   isLoading?: boolean
 }
 
 export function DashboardPage({ isLoading = false }: DashboardPageProps) {
-  const navigate = useNavigate()
-  const [selectedCategory, setSelectedCategory] = useState<RegCategory | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
-   const {
+  const {
     latestAnalysis,
     hasData,
     isAnalyzing,
@@ -110,6 +135,47 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
     activeAnalysisIndex,
   } = useAnalysis()
 
+  const [multiModalData, setMultiModalData] = useState<MultiModalData | null>(null)
+
+  useEffect(() => {
+    if (!latestAnalysis || !latestAnalysis.validationResult) {
+      setMultiModalData(null)
+      return
+    }
+
+    const vr = latestAnalysis.validationResult as any
+
+    if (!vr.data_sources && !vr.correlation_insights && !vr.alignment_uncertain) {
+      setMultiModalData(null)
+      return
+    }
+
+    let alignmentMethod: string | undefined
+    if (vr.data_sources && vr.data_sources.length > 0) {
+      const alignedSource = vr.data_sources.find((s: any) => s.alignment)
+      if (alignedSource?.alignment?.method) {
+        alignmentMethod = alignedSource.alignment.method
+      }
+    }
+
+    setMultiModalData({
+      report: vr,
+      correlation_insights: vr.correlation_insights,
+      conflicting_findings: vr.conflicting_findings,
+      timeline_events: vr.temporal_analysis?.event_timeline,
+      alignment_uncertain: vr.alignment_uncertain,
+      alignment_confidence: vr.multi_modal_confidence,
+      alignment_method: alignmentMethod,
+    })
+  }, [latestAnalysis])
+
+  const hasMultiModalData = multiModalData && (
+    multiModalData.correlation_insights?.length || 
+    multiModalData.conflicting_findings?.length ||
+    multiModalData.timeline_events?.length ||
+    multiModalData.alignment_uncertain
+  )
+
   console.log('🟢 Dashboard: latestAnalysis =', latestAnalysis)
   console.log('🟢 Dashboard: hasData =', hasData)
   console.log('🟢 Dashboard: analysisHistory.length =', analysisHistory.length)
@@ -117,10 +183,6 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
   if (latestAnalysis?.aiAnalysis) {
     console.log('🟢 Dashboard: aiAnalysis.insights =', latestAnalysis.aiAnalysis.insights?.length)
     console.log('🟢 Dashboard: aiAnalysis.risk_level =', latestAnalysis.aiAnalysis.session_risk_overview?.risk_level)
-  }
-
-  const handleCategoryClick = (category: RegCategory) => {
-    setSelectedCategory((prev) => (prev === category ? null : category))
   }
 
   const showLoading = isLoading || isAnalyzing
@@ -138,14 +200,6 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
     }
     return findingsToDetectedViolations(latestAnalysis.validationResult.findings)
   }, [hasData, latestAnalysis])
-
-  const filteredViolations = useMemo(() => {
-    if (!violations) return []
-    if (!selectedCategory) return violations
-    return violations.filter((v) =>
-      v.reg_code.startsWith(`REG-${selectedCategory}`)
-    )
-  }, [violations, selectedCategory])
 
   const telemetrySeries = useMemo(() => {
     if (!hasData || !latestAnalysis) {
@@ -225,203 +279,209 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
     )
   }
 
-    // ============================================
-    // LAYOUT DUAL: Cand nu avem date, afisam pagina simpla cu Upload
-    // ============================================
-    if (!hasData && !isAnalyzing) {
-      return (
-        <div className="flex flex-col items-center">
-          <div className="w-full max-w-3xl">
-            <div className="text-center mb-2">
-              <h2 className="text-lg sm:text-xl font-bold text-foreground font-heading mb-1">
-                Upload files to start compliance analysis
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Drag and drop device log files (.txt) or chart images (.png, .jpg) below
-              </p>
-            </div>
-            <FileUploadZone
-              onUploadComplete={() => {}}
-              maxFiles={10}
-              maxSize={50 * 1024 * 1024}
+  if (!hasData && !isAnalyzing) {
+    return (
+      <div className="flex flex-col items-center">
+        <div className="w-full max-w-3xl">
+          <div className="text-center mb-2">
+            <h2 className="text-lg sm:text-xl font-bold text-foreground font-heading mb-1">
+              Upload files to start compliance analysis
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Drag and drop device log files (.txt) or chart images (.png, .jpg) below
+            </p>
+          </div>
+          <FileUploadZone
+            onUploadComplete={() => {}}
+            maxFiles={10}
+            maxSize={50 * 1024 * 1024}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasData && isAnalyzing) {
+    return (
+      <div className="min-h-[40vh] flex flex-col items-center pt-4 sm:pt-8">
+        <Card className="w-full max-w-md border-border bg-muted/40">
+          <CardContent className="p-12 text-center">
+            <Loader2 className="h-16 w-16 mx-auto mb-6 text-primary animate-spin" />
+            <h3 className="text-xl font-semibold text-foreground mb-3">
+              Analyzing your files...
+            </h3>
+            <p className="text-base text-muted-foreground">
+              Please wait while we process your device logs or chart images.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-heading">
+            Analysis Hub
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {latestAnalysis
+              ? `Device: ${latestAnalysis.deviceId || 'Unknown'} • ${analysisHistory.length > 1 ? `Analysis ${activeAnalysisIndex + 1} of ${analysisHistory.length}` : 'Single analysis loaded'}`
+              : 'MED-THERM compliance overview for your medical devices'}
+          </p>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full sm:w-auto grid grid-cols-5 sm:inline-flex">
+          <TabsTrigger value="overview" className="touch-target">
+            <BarChart3 className="h-4 w-4 mr-2 hidden sm:inline" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="graphs" className="touch-target">
+            <LineChart className="h-4 w-4 mr-2 hidden sm:inline" />
+            Graphs
+          </TabsTrigger>
+          <TabsTrigger value="violations" className="touch-target">
+            <AlertTriangle className="h-4 w-4 mr-2 hidden sm:inline" />
+            Violations
+            {criticalCount > 0 && (
+              <Badge variant="critical" className="ml-2 hidden sm:inline-flex">
+                {criticalCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="timeline" className="touch-target">
+            <Clock className="h-4 w-4 mr-2 hidden sm:inline" />
+            Timeline
+            {hasMultiModalData && multiModalData?.timeline_events?.length ? (
+              <Badge variant="info" className="ml-2 hidden sm:inline-flex">
+                {multiModalData.timeline_events.length}
+              </Badge>
+            ) : null}
+          </TabsTrigger>
+          <TabsTrigger value="rules" className="touch-target">
+            <BookOpen className="h-4 w-4 mr-2 hidden sm:inline" />
+            Rules
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-6 space-y-6">
+          {multiModalData?.alignment_uncertain && (
+            <AlignmentUncertaintyBanner
+              alignmentConfidence={multiModalData.alignment_confidence}
+              alignmentMethod={multiModalData.alignment_method}
             />
-          </div>
-        </div>
-      )
-    }
-
-    // ============================================
-    // Cand avem date SAU suntem in timpul analizei
-    // ============================================
-    if (!hasData && isAnalyzing) {
-      return (
-        <div className="min-h-[40vh] flex flex-col items-center pt-4 sm:pt-8">
-          <Card className="w-full max-w-md border-border bg-muted/40">
-            <CardContent className="p-12 text-center">
-              <Loader2 className="h-16 w-16 mx-auto mb-6 text-primary animate-spin" />
-              <h3 className="text-xl font-semibold text-foreground mb-3">
-                Analyzing your files...
-              </h3>
-              <p className="text-base text-muted-foreground">
-                Please wait while we process your device logs or chart images.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )
-    }
-
-   // ============================================
-   // Cand avem date, afisam dashboard-ul normal
-   // ============================================
-   return (
-     <div className="space-y-6">
-       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-         <div>
-           <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-heading">
-             Analysis Hub
-           </h1>
-           <p className="text-muted-foreground mt-1">
-             {latestAnalysis
-               ? `Device: ${latestAnalysis.deviceId || 'Unknown'} • ${analysisHistory.length > 1 ? `Analysis ${activeAnalysisIndex + 1} of ${analysisHistory.length}` : 'Single analysis loaded'}`
-               : 'MED-THERM compliance overview for your medical devices'}
-           </p>
-          </div>
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:inline-flex">
-            <TabsTrigger value="overview" className="touch-target">
-              <BarChart3 className="h-4 w-4 mr-2 hidden sm:inline" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="graphs" className="touch-target">
-              <LineChart className="h-4 w-4 mr-2 hidden sm:inline" />
-              Graphs
-            </TabsTrigger>
-            <TabsTrigger value="violations" className="touch-target">
-              <AlertTriangle className="h-4 w-4 mr-2 hidden sm:inline" />
-              Violations
-              {criticalCount > 0 && (
-                <Badge variant="critical" className="ml-2 hidden sm:inline-flex">
-                  {criticalCount}
-                </Badge>
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 flex flex-col">
+              {isAnalyzing && !hasData ? (
+                <Card className="border-border bg-muted/40 h-full">
+                  <CardContent className="p-8 text-center">
+                    <Loader2 className="h-12 w-12 mx-auto mb-4 text-primary animate-spin" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      Analyzing your files...
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Please wait while we process your device logs or chart images.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : showLoading ? (
+                <ComplianceScoreSkeleton />
+              ) : !complianceScore ? (
+                <Card className="border-dashed border-border/80 bg-muted/20 h-full">
+                  <CardContent className="p-8">
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold text-foreground mb-2">
+                        No compliance data available
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Upload device log files or chart images to generate a compliance analysis.
+                      </p>
+                    </div>
+                    <FileUploadZone
+                      onUploadComplete={() => {}}
+                      maxFiles={10}
+                      maxSize={50 * 1024 * 1024}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <ComplianceScore
+                  score={complianceScore.score}
+                  totalRules={complianceScore.total}
+                  passedRules={complianceScore.passed}
+                  failedRules={complianceScore.failed}
+                  className="h-full"
+                />
               )}
-            </TabsTrigger>
-            <TabsTrigger value="rules" className="touch-target">
-              <BookOpen className="h-4 w-4 mr-2 hidden sm:inline" />
-              Rules
-            </TabsTrigger>
-          </TabsList>
+            </div>
 
-         <TabsContent value="overview" className="mt-6 space-y-6">
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 flex flex-col">
-               {isAnalyzing && !hasData ? (
-                 <Card className="border-border bg-muted/40 h-full">
-                   <CardContent className="p-8 text-center">
-                     <Loader2 className="h-12 w-12 mx-auto mb-4 text-primary animate-spin" />
-                     <h3 className="text-lg font-semibold text-foreground mb-2">
-                       Analyzing your files...
-                     </h3>
-                     <p className="text-sm text-muted-foreground">
-                       Please wait while we process your device logs or chart images.
-                     </p>
-                   </CardContent>
-                 </Card>
-               ) : showLoading ? (
-                 <ComplianceScoreSkeleton />
-               ) : !complianceScore ? (
-                 <Card className="border-dashed border-border/80 bg-muted/20 h-full">
-                   <CardContent className="p-8">
-                     <div className="mb-6">
-                       <h3 className="text-lg font-semibold text-foreground mb-2">
-                         No compliance data available
-                       </h3>
-                       <p className="text-sm text-muted-foreground">
-                         Upload device log files or chart images to generate a compliance analysis.
-                       </p>
-                     </div>
-                     <FileUploadZone
-                       onUploadComplete={() => {}}
-                       maxFiles={10}
-                       maxSize={50 * 1024 * 1024}
-                     />
-                   </CardContent>
-                 </Card>
-               ) : (
-                 <ComplianceScore
-                   score={complianceScore.score}
-                   totalRules={complianceScore.total}
-                   passedRules={complianceScore.passed}
-                   failedRules={complianceScore.failed}
-                   className="h-full"
-                 />
-               )}
-              </div>
+            <div className="flex flex-col gap-4">
+              {showLoading ? (
+                <Card className="h-full">
+                  <CardContent className="p-6">
+                    <div className="h-24 bg-border rounded animate-pulse" />
+                  </CardContent>
+                </Card>
+              ) : !severityCounts ? (
+                <Card className="h-full">
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      {['Critical', 'High', 'Medium', 'Low'].map((level) => (
+                        <div
+                          key={level}
+                          className="text-center p-3 bg-muted/40 rounded-lg"
+                        >
+                          <div className="text-3xl font-bold text-muted-foreground">-</div>
+                          <div className="text-xs text-muted-foreground">{level}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="h-full">
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                        <div className="text-3xl font-bold text-red-600 dark:text-red-400">
+                          {severityCounts.critical}
+                        </div>
+                        <div className="text-xs text-red-700 dark:text-red-400">Critical</div>
+                      </div>
+                      <div className="text-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                        <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                          {severityCounts.high}
+                        </div>
+                        <div className="text-xs text-orange-700 dark:text-orange-400">High</div>
+                      </div>
+                      <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
+                        <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                          {severityCounts.medium}
+                        </div>
+                        <div className="text-xs text-yellow-700 dark:text-yellow-400">Medium</div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                        <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                          {severityCounts.low}
+                        </div>
+                        <div className="text-xs text-green-700 dark:text-green-400">Low</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
 
-             <div className="flex flex-col gap-4">
-               {showLoading ? (
-                 <Card className="h-full">
-                   <CardContent className="p-6">
-                     <div className="h-24 bg-border rounded animate-pulse" />
-                   </CardContent>
-                 </Card>
-               ) : !severityCounts ? (
-                 <Card className="h-full">
-                   <CardContent className="p-6">
-                     <div className="grid grid-cols-2 gap-4">
-                       {['Critical', 'High', 'Medium', 'Low'].map((level) => (
-                         <div
-                           key={level}
-                           className="text-center p-3 bg-muted/40 rounded-lg"
-                         >
-                           <div className="text-3xl font-bold text-muted-foreground">-</div>
-                           <div className="text-xs text-muted-foreground">{level}</div>
-                         </div>
-                       ))}
-                     </div>
-                   </CardContent>
-                 </Card>
-               ) : (
-                 <Card className="h-full">
-                   <CardContent className="p-6">
-                     <div className="grid grid-cols-2 gap-4">
-                       <div className="text-center p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
-                         <div className="text-3xl font-bold text-red-600 dark:text-red-400">
-                           {severityCounts.critical}
-                         </div>
-                         <div className="text-xs text-red-700 dark:text-red-400">Critical</div>
-                       </div>
-                        <div className="text-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-                          <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                            {severityCounts.high}
-                          </div>
-                          <div className="text-xs text-orange-700 dark:text-orange-400">High</div>
-                        </div>
-                        <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
-                          <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                            {severityCounts.medium}
-                          </div>
-                          <div className="text-xs text-yellow-700 dark:text-yellow-400">Medium</div>
-                        </div>
-                        <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                          <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                            {severityCounts.low}
-                          </div>
-                          <div className="text-xs text-green-700 dark:text-green-400">Low</div>
-                        </div>
-                     </div>
-                   </CardContent>
-                 </Card>
-               )}
-             </div>
-           </div>
-
-           <div>
-             <h2 className="text-lg font-semibold text-foreground font-heading mb-4">
-               Compliance by Category
-             </h2>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground font-heading mb-4">
+              Compliance by Category
+            </h2>
             {!categoryData ? (
               <Card className="border-dashed border-border/80 bg-muted/20">
                 <CardContent className="p-6 text-center">
@@ -431,17 +491,17 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
                 </CardContent>
               </Card>
             ) : (
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                 {(Object.entries(categoryData) as [RegCategory, SeverityCounts][]).map(
-                   ([category, counts]) => (
-                     <SummaryCard
-                       key={category}
-                       category={category}
-                       counts={counts}
-                     />
-                   )
-                 )}
-               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {(Object.entries(categoryData) as [RegCategory, SeverityCounts][]).map(
+                  ([category, counts]) => (
+                    <SummaryCard
+                      key={category}
+                      category={category}
+                      counts={counts}
+                    />
+                  )
+                )}
+              </div>
             )}
           </div>
 
@@ -450,25 +510,121 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
               <AIAnalysisSection aiAnalysis={latestAnalysis.aiAnalysis} />
             </div>
           )}
+
+          {multiModalData?.correlation_insights && multiModalData.correlation_insights.length > 0 && (
+            <div className="mt-8 pt-6 border-t">
+              <CorrelationInsights insights={multiModalData.correlation_insights} />
+            </div>
+          )}
+
+          {multiModalData?.conflicting_findings && multiModalData.conflicting_findings.length > 0 && (
+            <div className="mt-6">
+              <ConflictsSection findings={multiModalData.conflicting_findings} />
+            </div>
+          )}
+
+          {hasMultiModalData && multiModalData?.timeline_events && multiModalData.timeline_events.length > 0 && (
+            <div className="mt-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    Timeline Events
+                    <Badge variant="outline" className="ml-2">
+                      {multiModalData.timeline_events.length} events
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Quick preview of events. Go to the Timeline tab for the full interactive view.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setActiveTab('timeline')}
+                    className="flex items-center gap-1.5"
+                  >
+                    <Clock className="h-4 w-4" />
+                    View Full Timeline
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
-         <TabsContent value="graphs" className="mt-6 space-y-6">
-           <GraphSection
-             telemetrySeries={telemetrySeries}
-             isLoading={showLoading}
-           />
-         </TabsContent>
+        <TabsContent value="graphs" className="mt-6 space-y-6">
+          <GraphSection
+            telemetrySeries={telemetrySeries}
+            isLoading={showLoading}
+          />
+        </TabsContent>
 
-         <TabsContent value="violations" className="mt-6 space-y-6">
-           {!violations ? (
-             <EmptyStateCard
-               icon={AlertTriangle}
-               title="No violations data"
-               description="Upload log files to analyze for compliance violations."
-               actionLabel="Go to Overview"
-               onActionClick={() => setActiveTab('overview')}
-             />
-           ) : (
+        <TabsContent value="timeline" className="mt-6 space-y-6">
+          {!hasData || !latestAnalysis ? (
+            <EmptyStateCard
+              icon={Clock}
+              title="No timeline data"
+              description="Upload log files or chart images to generate a unified event timeline."
+              actionLabel="Go to Overview"
+              onActionClick={() => setActiveTab('overview')}
+            />
+          ) : multiModalData?.timeline_events && multiModalData.timeline_events.length > 0 ? (
+            <>
+              {multiModalData.alignment_uncertain && (
+                <AlignmentUncertaintyBanner
+                  alignmentConfidence={multiModalData.alignment_confidence}
+                  alignmentMethod={multiModalData.alignment_method}
+                />
+              )}
+              <UnifiedTimeline 
+                events={multiModalData.timeline_events} 
+                title="Unified Event Timeline"
+              />
+            </>
+          ) : (
+            <div className="space-y-4">
+              <EmptyStateCard
+                icon={Clock}
+                title="No multi-modal timeline"
+                description="This analysis was created using single-file mode. Upload multiple files in Unified Batch mode to generate a correlated timeline with events from both logs and chart images."
+                actionLabel="Go to Overview"
+                onActionClick={() => setActiveTab('overview')}
+              />
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                    About Unified Timelines
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground space-y-2">
+                  <p>
+                    <strong>Unified Batch mode</strong> (in FileUploadZone) enables:
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Correlating events from multiple log files</li>
+                    <li>Time-aligning chart images with log timelines</li>
+                    <li>Detecting cross-source conflicts</li>
+                    <li>Generating a single unified timeline view</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="violations" className="mt-6 space-y-6">
+          {!violations ? (
+            <EmptyStateCard
+              icon={AlertTriangle}
+              title="No violations data"
+              description="Upload log files to analyze for compliance violations."
+              actionLabel="Go to Overview"
+              onActionClick={() => setActiveTab('overview')}
+            />
+          ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="border-red-200 bg-red-50 dark:bg-red-950/30">
@@ -528,23 +684,23 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
               </div>
 
               <ViolationsTable
-                data={filteredViolations}
+                data={violations || []}
                 title="All Violations"
               />
             </>
           )}
         </TabsContent>
 
-         <TabsContent value="history" className="mt-6 space-y-6">
-           {analysisHistory.length === 0 ? (
-             <EmptyStateCard
-               icon={History}
-               title="No analysis history"
-               description="Upload files to create analysis records."
-               actionLabel="Go to Overview"
-               onActionClick={() => setActiveTab('overview')}
-             />
-           ) : (
+        <TabsContent value="history" className="mt-6 space-y-6">
+          {analysisHistory.length === 0 ? (
+            <EmptyStateCard
+              icon={History}
+              title="No analysis history"
+              description="Upload files to create analysis records."
+              actionLabel="Go to Overview"
+              onActionClick={() => setActiveTab('overview')}
+            />
+          ) : (
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -552,23 +708,23 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
                     <History className="h-5 w-5 text-primary" />
                     Analysis History ({analysisHistory.length} records)
                   </CardTitle>
-                   {analysisHistory.length > 0 && (
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       onClick={async () => {
-                         if (
-                           confirm(`Sigur vrei să ștergi TOATE cele ${analysisHistory.length} analize?\nAceastă acțiune este IREVERSIBILĂ!`)
-                         ) {
-                           await clearHistory()
-                         }
-                       }}
-                       className="touch-target"
-                     >
-                       <Trash2 className="h-4 w-4 mr-2" />
-                       Clear All
-                     </Button>
-                   )}
+                  {analysisHistory.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (
+                          confirm(`Sigur vrei să ștergi TOATE cele ${analysisHistory.length} analize?\nAceastă acțiune este IREVERSIBILĂ!`)
+                        ) {
+                          await clearHistory()
+                        }
+                      }}
+                      className="touch-target"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear All
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
@@ -614,10 +770,10 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
                         return (
                           <tr
                             key={index}
-                             className={cn(
-                               'border-b border-slate-100 dark:border-slate-800 transition-colors',
-                               isActive ? 'bg-primary/5' : 'hover:bg-muted/40'
-                             )}
+                            className={cn(
+                              'border-b border-slate-100 dark:border-slate-800 transition-colors',
+                              isActive ? 'bg-primary/5' : 'hover:bg-muted/40'
+                            )}
                           >
                             <td className="py-3 px-4 text-sm">
                               <span className="font-medium">{index + 1}</span>
@@ -627,19 +783,19 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
                                 {analysis.deviceId || 'Unknown'}
                               </span>
                             </td>
-                             <td className="py-3 px-4 text-sm text-muted-foreground">
-                               {parseTimestampUTC(analysis.analyzedAt).toLocaleString()}
-                             </td>
+                            <td className="py-3 px-4 text-sm text-muted-foreground">
+                              {parseTimestampUTC(analysis.analyzedAt).toLocaleString()}
+                            </td>
                             <td className="py-3 px-4">
                               <span
                                 className={cn(
-                                 'text-sm font-bold',
-                                   score >= 90
-                                     ? 'text-green-600 dark:text-green-400'
-                                     : score >= 70
-                                       ? 'text-yellow-600 dark:text-yellow-400'
-                                       : 'text-red-600 dark:text-red-400'
-                                 )}
+                                  'text-sm font-bold',
+                                  score >= 90
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : score >= 70
+                                      ? 'text-yellow-600 dark:text-yellow-400'
+                                      : 'text-red-600 dark:text-red-400'
+                                )}
                               >
                                 {score}%
                               </span>
@@ -673,25 +829,25 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
                                     <span className="text-xs">Load</span>
                                   </Button>
                                 )}
-                                 {analysisHistory.length > 0 && (
-                                   <Button
-                                     variant="ghost"
-                                     size="sm"
-                                     onClick={async () => {
-                                       if (
-                                         confirm(
-                                           'Remove this analysis from history?'
-                                         )
-                                       ) {
-                                         await removeAnalysis(index)
-                                       }
-                                     }}
-                                     className="h-8 px-2 touch-target text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-400 dark:text-red-400 hover:bg-red-50 dark:bg-red-950/30 dark:hover:bg-red-950/50"
-                                   >
-                                     <X className="h-4 w-4" />
-                                     <span className="sr-only">Remove</span>
-                                   </Button>
-                                 )}
+                                {analysisHistory.length > 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={async () => {
+                                      if (
+                                        confirm(
+                                          'Remove this analysis from history?'
+                                        )
+                                      ) {
+                                        await removeAnalysis(index)
+                                      }
+                                    }}
+                                    className="h-8 px-2 touch-target text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-400 dark:text-red-400 hover:bg-red-50 dark:bg-red-950/30 dark:hover:bg-red-950/50"
+                                  >
+                                    <X className="h-4 w-4" />
+                                    <span className="sr-only">Remove</span>
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -702,13 +858,13 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
                 </div>
               </CardContent>
             </Card>
-           )}
-         </TabsContent>
+          )}
+        </TabsContent>
 
-         <TabsContent value="rules" className="mt-6">
-           <RulesList />
-         </TabsContent>
-       </Tabs>
+        <TabsContent value="rules" className="mt-6">
+          <RulesList />
+        </TabsContent>
+      </Tabs>
 
       {hasData && latestAnalysis && (
         <AIChat

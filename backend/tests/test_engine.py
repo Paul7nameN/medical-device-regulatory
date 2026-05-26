@@ -57,8 +57,8 @@ class TestRegulatoryEngine:
 
         report = engine.validate(entries, filter_rules=["REG-TEMP-1"])
 
-        temp_rules = [f for f in report.findings if f.category == "thermal"]
-        other_rules = [f for f in report.findings if f.category != "thermal"]
+        temp_rules = [f for f in report.findings if f.category == "TEMP"]
+        other_rules = [f for f in report.findings if f.category != "TEMP"]
 
         assert len(temp_rules) >= 1
 
@@ -77,7 +77,7 @@ class TestRegulatoryEngine:
         engine = RegulatoryEngine()
         rules = engine.get_all_rules()
 
-        assert len(rules) == 25
+        assert len(rules) == 21
 
         rule_ids = [r["rule_id"] for r in rules]
         assert "REG-TEMP-1" in rule_ids
@@ -93,14 +93,14 @@ class TestRegulatoryEngine:
         engine = RegulatoryEngine()
         categories = engine.get_categories()
 
-        assert "thermal" in categories
-        assert "sensor" in categories
-        assert "alarm" in categories
-        assert "data" in categories
-        assert "power" in categories
-        assert "cooling" in categories
-        assert "insulation" in categories
-        assert "operational" in categories
+        assert "TEMP" in categories
+        assert "SENS" in categories
+        assert "ALARM" in categories
+        assert "DATA" in categories
+        assert "POWER" in categories
+        assert "COOL" in categories
+        assert "INS" in categories
+        assert "OPS" in categories
 
     def test_compliant_temp_readings(self):
         compliant_logs = [
@@ -138,11 +138,11 @@ class TestRegulatoryEngine:
 
 class TestSampleLogFile:
     def test_sample_log_file_exists(self):
-        sample_path = Path(__file__).parent.parent.parent / "docs" / "client" / "medical_device_logs_1000.txt"
+        sample_path = Path(__file__).parent.parent.parent / "docs" / "user-guide" / "examples" / "medical_device_logs_1000.txt"
         assert sample_path.exists()
 
     def test_parse_sample_file(self):
-        sample_path = Path(__file__).parent.parent.parent / "docs" / "client" / "medical_device_logs_1000.txt"
+        sample_path = Path(__file__).parent.parent.parent / "docs" / "user-guide" / "examples" / "medical_device_logs_1000.txt"
 
         if not sample_path.exists():
             pytest.skip("Sample log file not found")
@@ -155,7 +155,7 @@ class TestSampleLogFile:
         assert len(entries) > 0
 
     def test_full_validation_on_sample(self):
-        sample_path = Path(__file__).parent.parent.parent / "docs" / "client" / "medical_device_logs_1000.txt"
+        sample_path = Path(__file__).parent.parent.parent / "docs" / "user-guide" / "examples" / "medical_device_logs_1000.txt"
 
         if not sample_path.exists():
             pytest.skip("Sample log file not found")
@@ -169,11 +169,11 @@ class TestSampleLogFile:
 
         assert report.total_entries == len(entries)
         assert len(report.findings) > 0
-        assert "thermal" in report.summary
-        assert "sensor" in report.summary
-        assert "alarm" in report.summary
-        assert "data" in report.summary
-        assert "power" in report.summary
-        assert "cooling" in report.summary
-        assert "insulation" in report.summary
-        assert "operational" in report.summary
+        assert "TEMP" in report.summary
+        assert "SENS" in report.summary
+        assert "ALARM" in report.summary
+        assert "DATA" in report.summary
+        assert "POWER" in report.summary
+        assert "COOL" in report.summary
+        assert "INS" in report.summary
+        assert "OPS" in report.summary

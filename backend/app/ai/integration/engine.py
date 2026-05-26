@@ -49,6 +49,11 @@ class AIAugmentedRegulatoryEngine:
         ai_required: bool = False,
         generate_ai_report: bool = False
     ) -> Dict[str, Any]:
+        if ai_required and not settings.ai_enabled:
+            raise AIValidationError(
+                "AI analysis is required but not enabled. Set MODELARK_API_KEY."
+            )
+
         if not logs:
             return {
                 "report": self._create_empty_result(device_id),

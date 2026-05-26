@@ -1,8 +1,9 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Body, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Body, Depends, Form
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import logging
+import json
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +16,8 @@ from app.ai.client import (
     AIError,
     AIValidationError,
     AIImageError,
-    AIRateLimitError
+    AIRateLimitError,
+    AITimeoutError
 )
 from app.ai.image.models import ChartAnalysisResult, ChartViolation, CrossValidationResult
 from app.ai.image.converters import (
@@ -28,6 +30,12 @@ from app.ai.analyst.models import ChatMessage, ChatRequest, ChatResponse
 from app.ai.text.models import LogAnalysisResult, GeneratedReport, AIErrorResponse
 from app.ai.image.analyzer import ChartAnalyzer
 from app.ai.text.analyzer import TextAnalyzer
+from app.models.dynamic_rules import (
+    ExtractRulesRequest,
+    ExtractRulesResponse,
+    ExtractedRule,
+    ExtractRulesMeta,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -107,7 +115,7 @@ def _format_error_response(exception: Exception) -> AIErrorResponse:
     error_type = "api_error"
     retry_available = False
     retry_after = None
-    
+
     if isinstance(exception, AIValidationError):
         error_type = "validation_error"
     elif isinstance(exception, AIImageError):
@@ -116,10 +124,10 @@ def _format_error_response(exception: Exception) -> AIErrorResponse:
         error_type = "rate_limit"
         retry_available = True
         retry_after = getattr(exception, 'retry_after', 60)
-    elif isinstance(exception, TimeoutError):
+    elif isinstance(exception, AITimeoutError) or isinstance(exception, TimeoutError):
         error_type = "timeout"
         retry_available = True
-    
+
     return AIErrorResponse(
         error_type=error_type,
         message=str(exception),
@@ -174,18 +182,78 @@ async def get_models_status():
     )
 
 
+class RulesCapabilityInfo(BaseModel):
+    extraction_available: bool
+    default_ruleset_name: str
+    auto_execute_confidence_threshold: float
+    supported_rule_types: List[str]
+    data_sources: List[str]
+
+
+@router.get("/ai/rules-info", response_model=RulesCapabilityInfo)
+async def get_rules_info():
+    request_start = datetime.now()
+    
+    info = RulesCapabilityInfo(
+        extraction_available=settings.ai_enabled,
+        default_ruleset_name="MED-THERM-2026",
+        auto_execute_confidence_threshold=0.7,
+        supported_rule_types=[
+            "threshold_range",
+            "duration_limit",
+            "frequency_limit",
+            "presence_check",
+            "inspection_only"
+        ],
+        data_sources=["logs", "inspection", "combined"]
+    )
+    
+    duration = (datetime.now() - request_start).total_seconds()
+    
+    logger.info(
+        "GET /ai/rules-info request processed",
+        extra={
+            "duration_seconds": duration,
+            "extraction_available": info.extraction_available
+        }
+    )
+    
+    return info
+
+
 @router.post("/ai/analyze-chart", response_model=ChartAnalysisResponse)
 async def analyze_chart(
     file: UploadFile = File(...),
     device_id: Optional[str] = Query(None),
+    extracted_rules: Optional[str] = Form(None),
+    ruleset_meta: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_async_db),
 ):
     request_start = datetime.now()
+    
+    parsed_rules: Optional[List[Dict[str, Any]]] = None
+    parsed_meta: Optional[Dict[str, Any]] = None
+    
+    if extracted_rules:
+        try:
+            parsed_rules = json.loads(extracted_rules)
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse extracted_rules JSON")
+            parsed_rules = None
+    
+    if ruleset_meta:
+        try:
+            parsed_meta = json.loads(ruleset_meta)
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse ruleset_meta JSON")
+            parsed_meta = None
+    
     request_log = {
         "endpoint": "/api/ai/analyze-chart",
         "file_name": file.filename,
         "device_id": device_id,
-        "ai_enabled": settings.ai_enabled
+        "ai_enabled": settings.ai_enabled,
+        "has_custom_rules": parsed_rules is not None and len(parsed_rules) > 0,
     }
     
     logger.info(
@@ -264,19 +332,33 @@ async def analyze_chart(
                 result.data_points or []
             )
             
+            config_dict: Dict[str, Any] = {
+                "_latest_analysis_data": {
+                    "temperatureData": temperature_data,
+                }
+            }
+            
+            if parsed_rules and isinstance(parsed_rules, list) and len(parsed_rules) > 0:
+                config_dict["_extracted_rules"] = parsed_rules
+                config_dict["_ruleset_meta"] = parsed_meta or {
+                    "source": "extracted",
+                    "rule_count": len(parsed_rules),
+                    "ruleset_name": "Custom Rules from Image Analysis",
+                }
+                logger.info(
+                    f"Added {len(parsed_rules)} custom rules to chart analysis session",
+                    extra={"rule_count": len(parsed_rules)}
+                )
+            
             persistence = PersistenceService(db)
             session = await persistence.save_analysis_session(
                 device_id=actual_device_id,
                 logs=[],
                 report=compliance_report,
-                config={
-                    "_latest_analysis_data": {
-                        "temperatureData": temperature_data,
-                    }
-                },
+                config=config_dict,
                 raw_logs=[],
             )
-            
+
             from sqlalchemy.ext.asyncio import AsyncSession
             async_db: AsyncSession = db
             await async_db.refresh(session)
@@ -702,4 +784,115 @@ async def chat_with_ai(
             message="Sorry, I encountered an unexpected error. Please try again.",
             sources=[],
             suggested_actions=[],
+        )
+
+
+class RuleExtractionResponse(BaseModel):
+    success: bool
+    rules: List[Dict[str, Any]]
+    meta: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+class RuleExtractionRequest(BaseModel):
+    document_text: str
+    filename: Optional[str] = None
+
+
+@router.post("/ai/extract-rules", response_model=RuleExtractionResponse)
+async def extract_rules_from_document(
+    request: RuleExtractionRequest,
+):
+    request_start = datetime.now()
+    
+    request_log = {
+        "endpoint": "/api/ai/extract-rules",
+        "filename": request.filename,
+        "text_length": len(request.document_text),
+        "ai_enabled": settings.ai_enabled
+    }
+    
+    logger.info(
+        "Starting rule extraction request",
+        extra=request_log
+    )
+    
+    if not settings.ai_enabled:
+        logger.warning(
+            "Rule extraction request rejected: AI not enabled",
+            extra=request_log
+        )
+        return RuleExtractionResponse(
+            success=False,
+            rules=[],
+            meta=None,
+            error="AI analysis is not enabled. Set MODELARK_API_KEY environment variable."
+        )
+    
+    try:
+        analyzer = TextAnalyzer()
+        
+        result = await analyzer.extract_rules(
+            document_text=request.document_text,
+            filename=request.filename
+        )
+        
+        duration = (datetime.now() - request_start).total_seconds()
+        
+        meta_dict = None
+        if result.get("meta"):
+            meta = result["meta"]
+            meta_dict = {
+                "extracted_at": meta.get("extracted_at").isoformat() if hasattr(meta.get("extracted_at"), 'isoformat') else str(meta.get("extracted_at")),
+                "model_used": meta.get("model_used"),
+                "average_confidence": meta.get("average_confidence"),
+                "rule_count": meta.get("rule_count")
+            }
+        
+        logger.info(
+            "Rule extraction completed successfully",
+            extra={
+                "duration_seconds": duration,
+                "rule_count": len(result.get("rules", [])),
+                "average_confidence": meta_dict.get("average_confidence") if meta_dict else None
+            }
+        )
+        
+        return RuleExtractionResponse(
+            success=True,
+            rules=result.get("rules", []),
+            meta=meta_dict,
+            error=None
+        )
+    
+    except AIError as e:
+        duration = (datetime.now() - request_start).total_seconds()
+        logger.error(
+            "Rule extraction failed",
+            extra={
+                "error": str(e),
+                "duration_seconds": duration
+            }
+        )
+        return RuleExtractionResponse(
+            success=False,
+            rules=[],
+            meta=None,
+            error=str(e)
+        )
+    except Exception as e:
+        duration = (datetime.now() - request_start).total_seconds()
+        logger.error(
+            "Unexpected error in rule extraction",
+            extra={
+                "error": str(e),
+                "duration_seconds": duration
+            },
+            exc_info=True
+        )
+        return RuleExtractionResponse(
+            success=False,
+            rules=[],
+            meta=None,
+            error=f"Unexpected error: {str(e)}"
         )

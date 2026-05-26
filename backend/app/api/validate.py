@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from datetime import datetime
 import uuid
 
@@ -13,6 +13,12 @@ from app.models.logs import LogEntry
 from app.database import get_async_db
 from app.services.persistence import PersistenceService
 
+try:
+    from app.models.dynamic_rules import ExtractedRule, RulesetMeta
+    DYNAMIC_RULES_AVAILABLE = True
+except ImportError:
+    DYNAMIC_RULES_AVAILABLE = False
+
 router = APIRouter()
 
 
@@ -24,6 +30,16 @@ class LogEntryInput(BaseModel):
     sensor_id: Optional[str] = None
 
 
+class RulesetMetaInput(BaseModel):
+    source: str = "extracted"
+    filename: Optional[str] = None
+    extracted_at: Optional[str] = None
+    model_used: Optional[str] = None
+    rule_count: int = 0
+    average_confidence: Optional[float] = None
+    ruleset_name: Optional[str] = None
+
+
 class ValidateRequest(BaseModel):
     raw_logs: Optional[List[str]] = None
     entries: Optional[List[LogEntryInput]] = None
@@ -31,6 +47,9 @@ class ValidateRequest(BaseModel):
     include_sources: Optional[List[str]] = None
     exclude_sources: Optional[List[str]] = None
     device_id: Optional[str] = None
+    extracted_rules: Optional[List[Dict[str, Any]]] = None
+    ruleset_meta: Optional[RulesetMetaInput] = None
+    merge_with_default_rules: bool = False
 
 
 class ValidateResponse(BaseModel):
@@ -48,6 +67,10 @@ class AnalysisSessionListItem(BaseModel):
     violation_count: int
     latest_analysis_data: Optional[dict[str, Any]] = None
     ai_analysis: Optional[dict[str, Any]] = None
+    has_custom_rules: bool = False
+    ruleset_name: Optional[str] = None
+    extracted_rules: Optional[List[Dict[str, Any]]] = None
+    ruleset_meta: Optional[Dict[str, Any]] = None
 
 
 class AnalysisSessionDetail(AnalysisSessionListItem):
@@ -117,10 +140,36 @@ def _orm_session_to_list_item(session) -> dict:
     
     latest_analysis_data = None
     ai_analysis = None
+    has_custom_rules = False
+    ruleset_name = None
+    extracted_rules = None
+    ruleset_meta = None
+    multi_modal_sources = None
+    multi_modal_correlation = None
     
     if isinstance(config, dict):
         latest_analysis_data = config.get("_latest_analysis_data")
         ai_analysis = config.get("_ai_analysis")
+        extracted_rules = config.get("_extracted_rules")
+        ruleset_meta = config.get("_ruleset_meta")
+        multi_modal_sources = config.get("_sources")
+        multi_modal_correlation = config.get("_correlation")
+        
+        if extracted_rules and isinstance(extracted_rules, list) and len(extracted_rules) > 0:
+            has_custom_rules = True
+        
+        if ruleset_meta and isinstance(ruleset_meta, dict):
+            has_custom_rules = True
+            # Prefer filename over ruleset_name for user-friendly display
+            filename = ruleset_meta.get("filename")
+            name_from_ai = ruleset_meta.get("ruleset_name")
+            if filename:
+                ruleset_name = filename
+            elif name_from_ai:
+                ruleset_name = name_from_ai
+            else:
+                ruleset_name = "Custom Rules"
+        
         logger.info(f"[DEBUG] _ai_analysis from config = {ai_analysis is not None}")
         if ai_analysis:
             logger.info(f"[DEBUG] _ai_analysis type = {type(ai_analysis)}")
@@ -136,6 +185,8 @@ def _orm_session_to_list_item(session) -> dict:
         "completed_at": session.completed_at.isoformat() if session.completed_at else None,
         "result_summary": session.result_summary,
         "violation_count": len(session.violations) if session.violations else 0,
+        "has_custom_rules": has_custom_rules,
+        "ruleset_name": ruleset_name,
     }
     
     if latest_analysis_data:
@@ -147,6 +198,37 @@ def _orm_session_to_list_item(session) -> dict:
         logger.info(f"[DEBUG] Added ai_analysis to result with {len(ai_analysis.get('insights', []))} insights")
     else:
         logger.info(f"[DEBUG] NOT adding ai_analysis to result (ai_analysis={ai_analysis})")
+
+    if extracted_rules and isinstance(extracted_rules, list) and len(extracted_rules) > 0:
+        result["extracted_rules"] = extracted_rules
+        logger.info(f"[DEBUG] Added extracted_rules to result: {len(extracted_rules)} rules")
+
+    if ruleset_meta and isinstance(ruleset_meta, dict):
+        result["ruleset_meta"] = ruleset_meta
+        logger.info(f"[DEBUG] Added ruleset_meta to result: {ruleset_meta}")
+    
+    if multi_modal_sources:
+        result["multi_modal_sources"] = multi_modal_sources
+        logger.info(f"[DEBUG] Added multi_modal_sources: {len(multi_modal_sources)} sources")
+    
+    if multi_modal_correlation:
+        result["multi_modal_correlation"] = multi_modal_correlation
+        logger.info(f"[DEBUG] Added multi_modal_correlation")
+    
+    if latest_analysis_data and multi_modal_sources:
+        vr = latest_analysis_data.get("validationResult") or latest_analysis_data.get("validation_result")
+        if isinstance(vr, dict):
+            if "data_sources" not in vr:
+                vr["data_sources"] = multi_modal_sources
+            if multi_modal_correlation:
+                if "correlation_insights" not in vr and multi_modal_correlation.get("correlated_findings"):
+                    vr["correlation_insights"] = multi_modal_correlation.get("correlated_findings")
+                if "conflicting_findings" not in vr:
+                    vr["conflicting_findings"] = multi_modal_correlation.get("conflicting_findings", [])
+                if "correlation_summary" not in vr:
+                    vr["correlation_summary"] = multi_modal_correlation.get("summary")
+                if "alignment_uncertain" not in vr:
+                    vr["alignment_uncertain"] = multi_modal_correlation.get("alignment_uncertain", False)
     
     logger.info(f"[DEBUG] Final result keys = {list(result.keys())}")
     
@@ -183,6 +265,24 @@ def _orm_violation_to_dict(violation) -> dict:
     }
 
 
+def _parse_extracted_rules(rules_data: Optional[List[Dict[str, Any]]]) -> Optional[List[Any]]:
+    if not rules_data or not DYNAMIC_RULES_AVAILABLE:
+        return None
+    
+    try:
+        from app.models.dynamic_rules import ExtractedRule
+        parsed_rules = []
+        for rule_dict in rules_data:
+            try:
+                rule = ExtractedRule(**rule_dict)
+                parsed_rules.append(rule)
+            except Exception:
+                pass
+        return parsed_rules if parsed_rules else None
+    except Exception:
+        return None
+
+
 @router.post("/validate", response_model=ValidateResponse)
 async def validate_logs(
     request: ValidateRequest,
@@ -205,14 +305,39 @@ async def validate_logs(
             detail="No log entries provided. Include 'raw_logs' or 'entries' in request."
         )
 
+    extracted_rules = _parse_extracted_rules(request.extracted_rules)
+
     engine = RegulatoryEngine()
     report = engine.validate(
         logs=entries,
         filter_rules=request.filter_rules,
         device_id=device_id,
         include_sources=request.include_sources,
-        exclude_sources=request.exclude_sources
+        exclude_sources=request.exclude_sources,
+        rule_set=extracted_rules,
+        merge_with_default=request.merge_with_default_rules,
     )
+
+    config_dict: Dict[str, Any] = {
+        "filter_rules": request.filter_rules,
+        "include_sources": request.include_sources,
+        "exclude_sources": request.exclude_sources,
+        "merge_with_default_rules": request.merge_with_default_rules,
+    }
+
+    if request.extracted_rules:
+        config_dict["_extracted_rules"] = request.extracted_rules
+    
+    if request.ruleset_meta:
+        config_dict["_ruleset_meta"] = {
+            "source": request.ruleset_meta.source,
+            "filename": request.ruleset_meta.filename,
+            "extracted_at": request.ruleset_meta.extracted_at,
+            "model_used": request.ruleset_meta.model_used,
+            "rule_count": request.ruleset_meta.rule_count,
+            "average_confidence": request.ruleset_meta.average_confidence,
+            "ruleset_name": request.ruleset_meta.ruleset_name or "Custom Rules",
+        }
 
     persistence = PersistenceService(db)
     try:
@@ -220,11 +345,7 @@ async def validate_logs(
             device_id=device_id,
             logs=entries,
             report=report,
-            config={
-                "filter_rules": request.filter_rules,
-                "include_sources": request.include_sources,
-                "exclude_sources": request.exclude_sources,
-            },
+            config=config_dict,
             raw_logs=request.raw_logs,
         )
         return ValidateResponse(

@@ -5,6 +5,7 @@ import type {
   ChatRequest,
   ChatResponse,
   AIResponse,
+  ExtractedRule,
 } from './types'
 
 export interface AnalysisSessionListItem {
@@ -34,6 +35,10 @@ export interface AnalysisSessionListItem {
     >
   }
   ai_analysis?: AIAnalysisResult
+  has_custom_rules?: boolean
+  ruleset_name?: string
+  extracted_rules?: Array<Record<string, unknown>>
+  ruleset_meta?: Record<string, unknown>
 }
 
 export interface AnalysisSessionDetail extends AnalysisSessionListItem {
@@ -232,9 +237,33 @@ function handleAIResponse<T>(response: AIResponse<T>): T {
   return response.result
 }
 
+export interface ExtractRulesResult {
+  success: boolean
+  rules: ExtractedRule[]
+  meta?: {
+    extracted_at: string
+    model_used: string
+    average_confidence: number
+    rule_count: number
+  }
+  error?: string
+}
+
 export const aiApi = {
   getModels: async () => {
     return apiClient.get<{ models: string[] }>('/api/ai/models')
+  },
+  getRulesInfo: async () => {
+    return apiClient.get<{
+      extraction_available: boolean
+      default_ruleset_name: string
+      auto_execute_confidence_threshold: number
+      supported_rule_types: string[]
+      data_sources: string[]
+    }>('/api/ai/rules-info')
+  },
+  extractRules: async (data: { document_text: string; filename?: string }) => {
+    return apiClient.post<ExtractRulesResult>('/api/ai/extract-rules', data)
   },
   analyzeChart: async (formData: FormData) => {
     const response = await apiClient.postFormData<AIResponse<ValidationResult>>('/api/ai/analyze-chart', formData)
@@ -249,11 +278,24 @@ export const aiApi = {
   },
 }
 
+export interface RulesetMetaInput {
+  source?: string
+  filename?: string
+  extracted_at?: string
+  model_used?: string
+  rule_count?: number
+  average_confidence?: number
+  ruleset_name?: string
+}
+
 export interface GenerateReportFromLogsRequest {
   raw_logs: string[]
   device_id?: string
   filter_rules?: string[]
   include_ai_analysis?: boolean
+  extracted_rules?: ExtractedRule[]
+  ruleset_meta?: RulesetMetaInput
+  merge_with_default_rules?: boolean
 }
 
 export interface ReportListItem {
@@ -367,5 +409,74 @@ export const healthApi = {
 
   getDbHealth: async () => {
     return apiClient.get<DbHealthResponse>('/api/health/db')
+  },
+}
+
+export interface MultiModalAnalyzeOptions {
+  merge_logs?: boolean
+  extract_rules?: boolean
+  align_charts?: boolean
+  correlate_findings?: boolean
+}
+
+export interface MultiModalAnalyzeResponse {
+  success: boolean
+  session_id: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  message?: string
+  estimated_time_seconds?: number
+}
+
+export interface MultiModalStatusResponse {
+  success: boolean
+  session_id: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  progress?: number
+  current_step?: string
+  steps_total?: number
+  message?: string
+}
+
+export interface MultiModalResultsResponse {
+  success: boolean
+  session_id: string
+  report?: any
+  error?: string
+}
+
+export const multimodalApi = {
+  analyze: async (
+    logFiles: File[] = [],
+    chartImages: File[] = [],
+    constraintsDocs: File[] = [],
+    options?: MultiModalAnalyzeOptions
+  ) => {
+    const formData = new FormData()
+
+    logFiles.forEach((file) => {
+      formData.append('log_files', file)
+    })
+
+    chartImages.forEach((file) => {
+      formData.append('chart_images', file)
+    })
+
+    constraintsDocs.forEach((file) => {
+      formData.append('constraints_docs', file)
+    })
+
+    if (options) {
+      formData.append('options_json', JSON.stringify(options))
+    }
+
+    return apiClient.postFormData<MultiModalAnalyzeResponse>('/api/multimodal/analyze', formData)
+  },
+
+  getStatus: async (sessionId: string) => {
+    return apiClient.get<MultiModalStatusResponse>(`/api/multimodal/status/${sessionId}`)
+  },
+
+  getResults: async (sessionId: string) => {
+    return apiClient.get<MultiModalResultsResponse>(`/api/multimodal/results/${sessionId}`)
   },
 }

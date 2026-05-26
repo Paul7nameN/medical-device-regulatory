@@ -17,9 +17,14 @@ MED-THERM
 │       ▼                                                             │
 │  Backend (FastAPI + Python 3.12)                                     │
 │       │                                                             │
-│       ├──► Log Parser                                              │
+│       ├──► Multi-Modal Pipeline                                    │
+│       │       ├──► Log Parser (merge, dedupe)                     │
+│       │       ├──► Chart Alignment (time synchronization)          │
+│       │       └──► Temporal Correlation (cross-source analysis)   │
+│       │                                                             │
 │       ├──► Regulatory Engine (21 rules)                            │
-│       └──► AI Integration (ModelArk)                               │
+│       ├──► AI Integration (ModelArk)                               │
+│       └──► Unified Report Generation                               │
 │       │                                                             │
 │       │ SQLAlchemy ORM + asyncpg                                    │
 │       ▼                                                             │
@@ -53,36 +58,56 @@ MED-THERM
 ## Workflow
 
 ```
-User uploads file (.txt / .png / .jpg)
+User uploads file (.txt / .png / .jpg / .md)
        │
        ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     File Upload Zone                                      │
 └─────────────────────────────────────────────────────────────────────┘
        │
-       ├──► Daca este .txt ──► Log Parser ──► Regulatory Engine
+       ├──► If .txt ──► Log Parser (merge, dedupe, source tracking)
        │
-       ├──► Daca este .png/.jpg ──► AI Image Analysis (ModelArk)
+       ├──► If .png/.jpg ──► AI Image Analysis (chart data extraction)
+       │
+       └──► If .md/.txt (constraints) ──► Dynamic Rule Extraction
        │
        ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      Baza de Date (PostgreSQL)                      │
-│  • devices                                                  │
-│  • analysis_sessions                                          │
-│  • log_entries                                            │
-│  • detected_violations                                       │
-│  • compliance_reports                                      │
-│  • audit_log                                               │
+│                   Multi-Modal Processing                             │
+│  ├──► Chart Time Alignment (align chart data to log timestamps)    │
+│  ├──► Regulatory Validation (apply rules to all data sources)       │
+│  └──► Temporal Correlation (cross-check findings across sources)    │
 └─────────────────────────────────────────────────────────────────────┘
        │
        ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    Frontend Dashboard                             │
-│  • Overview                                                 │
-│  • Temperature Chart                                    │
-│  • Violations Table                                     │
-│  • Rules Reference                                │
-│  • History                                         │
+│                    Unified Report Generation                          │
+│  ├──► Combine findings from all sources                              │
+│  ├──► Add correlation insights (strong/weak/conflicting)            │
+│  └──► Include source badges (Logs / Chart / Correlated)             │
+└─────────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Database (PostgreSQL)                           │
+│  • devices                                                           │
+│  • analysis_sessions                                                 │
+│  • log_entries                                                       │
+│  • detected_violations                                               │
+│  • compliance_reports                                                │
+│  • audit_log                                                         │
+└─────────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Frontend Dashboard                                 │
+│  • Overview                                                           │
+│  • Temperature Chart                                                  │
+│  • Violations Table (severity-sorted: CRITICAL → HIGH → ...)        │
+│  • Unified Timeline (with source badges)                              │
+│  • Correlation Insights                                               │
+│  • Rules Reference                                                    │
+│  • History                                                            │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
 import {
   SortingState,
   ColumnFiltersState,
@@ -23,6 +24,8 @@ import {
   Button,
   Badge,
   SeverityBadge,
+  DataSourceBadge,
+  ConfidenceBadge,
   Select,
   SelectTrigger,
   SelectValue,
@@ -36,7 +39,7 @@ import {
   DialogDescription,
   Input,
 } from '@/components/ui'
-import { DetectedViolation, type RegCategory, REG_CATEGORIES } from '@/lib/api'
+import { DetectedViolation, REG_CATEGORIES, type DataSource, DATA_SOURCE_LABELS, compareSeverity } from '@/lib/api'
 import { AlertTriangle, Filter, X, Eye, ChevronUp, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -85,6 +88,32 @@ const dateRangeFilterFn: FilterFn<DetectedViolation> = (row, columnId, filterVal
   return true
 }
 
+const dataSourceFilterFn: FilterFn<DetectedViolation> = (row, columnId, filterValue) => {
+  if (!filterValue || filterValue === 'all') return true
+  const source: DataSource | undefined = row.getValue(columnId)
+  return source === filterValue
+}
+
+type ConfidenceFilter = 'all' | 'high' | 'medium' | 'low' | 'none'
+
+const confidenceFilterFn: FilterFn<DetectedViolation> = (row, columnId, filterValue: ConfidenceFilter) => {
+  if (!filterValue || filterValue === 'all') return true
+  
+  const confidence: number | undefined = row.getValue(columnId)
+  
+  if (filterValue === 'none') {
+    return confidence === undefined
+  }
+  
+  if (confidence === undefined) return false
+  
+  if (filterValue === 'high') return confidence >= 0.85
+  if (filterValue === 'medium') return confidence >= 0.70 && confidence < 0.85
+  if (filterValue === 'low') return confidence < 0.70
+  
+  return true
+}
+
 export function ViolationsTable({
   data,
   title = 'Detected Violations',
@@ -93,12 +122,32 @@ export function ViolationsTable({
   className,
 }: ViolationsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
+    { id: 'severity', desc: false },
     { id: 'detected_at', desc: true },
   ])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialFilters)
   const [selectedViolation, setSelectedViolation] = useState<DetectedViolation | null>(null)
 
-  const columns = useMemo(() => [
+  const hasDataSourceField = useMemo(
+    () => data.some((d) => d.data_source !== undefined),
+    [data]
+  )
+
+  const hasConfidenceField = useMemo(
+    () => data.some((d) => d.confidence !== undefined),
+    [data]
+  )
+
+  const availableDataSources = useMemo(() => {
+    const sources = new Set<DataSource>()
+    for (const d of data) {
+      if (d.data_source) sources.add(d.data_source)
+    }
+    return Array.from(sources)
+  }, [data])
+
+  const columns = useMemo((): ColumnDef<DetectedViolation>[] => {
+    const baseColumns: ColumnDef<DetectedViolation>[] = [
     {
       accessorKey: 'reg_code',
       header: ({ column }) => (
@@ -120,11 +169,21 @@ export function ViolationsTable({
     },
     {
       accessorKey: 'severity',
-      header: 'Severity',
+      header: ({ column }) => (
+        <button
+          className={cn('flex items-center gap-1 font-medium', 'cursor-pointer')}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+        >
+          Severity
+          {column.getIsSorted() === 'asc' && <ChevronUp className="h-3 w-3" />}
+          {column.getIsSorted() === 'desc' && <ChevronDown className="h-3 w-3" />}
+        </button>
+      ),
       cell: ({ row }) => (
         <SeverityBadge severity={row.getValue('severity')} />
       ),
       filterFn: severityFilterFn,
+      sortingFn: (rowA, rowB) => compareSeverity(rowA.getValue('severity'), rowB.getValue('severity')),
     },
     {
       accessorKey: 'description',
@@ -179,17 +238,57 @@ export function ViolationsTable({
           acknowledged: 'bg-yellow-100 text-yellow-700 border-yellow-200',
           resolved: 'bg-green-100 text-green-700 border-green-200',
         }
-        return (
-          <Badge className={cn(statusColors[status])}>
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-          </Badge>
-        )
-      },
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => (
+         return (
+           <Badge className={cn(statusColors[status])}>
+             {status.charAt(0).toUpperCase() + status.slice(1)}
+           </Badge>
+         )
+       },
+     },
+    ]
+
+    const dynamicColumns = []
+
+    if (hasDataSourceField) {
+      dynamicColumns.push({
+        accessorKey: 'data_source' as const,
+        header: 'Source',
+        cell: ({ row }: { row: { original: DetectedViolation } }) => {
+          const source: DataSource | undefined = row.original.data_source
+          if (!source) {
+            return <span className="text-sm text-muted-foreground">-</span>
+          }
+          return <DataSourceBadge source={source} />
+        },
+        filterFn: dataSourceFilterFn,
+      })
+    }
+
+    if (hasConfidenceField) {
+      dynamicColumns.push({
+        accessorKey: 'confidence' as const,
+        header: 'Confidence',
+        cell: ({ row }: { row: { original: DetectedViolation } }) => {
+          const confidence: number | undefined = row.original.confidence
+          if (confidence === undefined) {
+            return <span className="text-sm text-muted-foreground">-</span>
+          }
+          return (
+            <ConfidenceBadge 
+              confidence={confidence} 
+              breakdown={row.original.confidence_breakdown}
+            />
+          )
+        },
+        filterFn: confidenceFilterFn,
+      })
+    }
+
+     const actionsColumn: ColumnDef<DetectedViolation>[] = [
+      {
+        id: 'actions',
+        header: 'Actions',
+       cell: ({ row }) => (
         <Dialog>
           <DialogTrigger asChild>
             <Button
@@ -214,40 +313,96 @@ export function ViolationsTable({
             </DialogHeader>
             {selectedViolation && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      REG Code
-                    </label>
-                    <p className="font-mono text-lg text-primary">
-                      {selectedViolation.reg_code}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Severity
-                    </label>
-                    <div className="mt-1">
-                      <SeverityBadge severity={selectedViolation.severity} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Status
-                    </label>
-                    <p className="mt-1">{selectedViolation.status}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Risk Score
-                    </label>
-                    <p className="mt-1 font-medium">
-                      {selectedViolation.risk_score !== undefined
-                        ? `${selectedViolation.risk_score}/100`
-                        : 'N/A'}
-                    </p>
-                  </div>
-                </div>
+                 <div className="grid grid-cols-2 gap-4">
+                   <div>
+                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                       REG Code
+                     </label>
+                     <p className="font-mono text-lg text-primary">
+                       {selectedViolation.reg_code}
+                     </p>
+                   </div>
+                   <div>
+                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                       Severity
+                     </label>
+                     <div className="mt-1">
+                       <SeverityBadge severity={selectedViolation.severity} />
+                     </div>
+                   </div>
+                   <div>
+                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                       Status
+                     </label>
+                     <p className="mt-1">{selectedViolation.status}</p>
+                   </div>
+                   <div>
+                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                       Risk Score
+                     </label>
+                     <p className="mt-1 font-medium">
+                       {selectedViolation.risk_score !== undefined
+                         ? `${selectedViolation.risk_score}/100`
+                         : 'N/A'}
+                     </p>
+                   </div>
+                   {selectedViolation.data_source && (
+                     <div>
+                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                         Data Source
+                       </label>
+                       <div className="mt-1">
+                         <DataSourceBadge source={selectedViolation.data_source} />
+                       </div>
+                     </div>
+                   )}
+                   {selectedViolation.confidence !== undefined && (
+                     <div>
+                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                         Confidence
+                       </label>
+                       <div className="mt-1">
+                         <ConfidenceBadge 
+                           confidence={selectedViolation.confidence}
+                           breakdown={selectedViolation.confidence_breakdown}
+                         />
+                       </div>
+                     </div>
+                   )}
+                 </div>
+                 {selectedViolation.confidence_breakdown && (
+                   <div className="bg-muted/40 rounded-lg p-3">
+                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
+                       Confidence Breakdown
+                     </label>
+                     <div className="grid grid-cols-3 gap-3 text-center">
+                       {selectedViolation.confidence_breakdown.log !== undefined && (
+                         <div>
+                           <p className="text-xs text-muted-foreground">Logs</p>
+                           <p className="text-sm font-medium">
+                             {Math.round(selectedViolation.confidence_breakdown.log * 100)}%
+                           </p>
+                         </div>
+                       )}
+                       {selectedViolation.confidence_breakdown.chart !== undefined && (
+                         <div>
+                           <p className="text-xs text-muted-foreground">Chart</p>
+                           <p className="text-sm font-medium">
+                             {Math.round(selectedViolation.confidence_breakdown.chart * 100)}%
+                           </p>
+                         </div>
+                       )}
+                       {selectedViolation.confidence_breakdown.alignment !== undefined && (
+                         <div>
+                           <p className="text-xs text-muted-foreground">Alignment</p>
+                           <p className="text-sm font-medium">
+                             {Math.round(selectedViolation.confidence_breakdown.alignment * 100)}%
+                           </p>
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 )}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Description
@@ -283,11 +438,14 @@ export function ViolationsTable({
                 )}
               </div>
             )}
-          </DialogContent>
-        </Dialog>
-      ),
-    },
-  ], [])
+           </DialogContent>
+         </Dialog>
+       ),
+     },
+    ]
+
+    return [...baseColumns, ...dynamicColumns, ...actionsColumn]
+  }, [hasDataSourceField, hasConfidenceField])
 
   const table = useReactTable({
     data,
@@ -308,15 +466,19 @@ export function ViolationsTable({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    filterFns: {
-      severity: severityFilterFn,
-      regCategory: regCategoryFilterFn,
-    },
-  })
+     filterFns: {
+       severity: severityFilterFn,
+       regCategory: regCategoryFilterFn,
+       dataSource: dataSourceFilterFn,
+       confidence: confidenceFilterFn,
+     },
+   })
 
   const severityFilter = columnFilters.find(f => f.id === 'severity')
   const categoryFilter = columnFilters.find(f => f.id === 'reg_code')
   const dateRangeFilter = columnFilters.find(f => f.id === 'detected_at') as { value?: DateRangeFilter } | undefined
+  const dataSourceFilter = columnFilters.find(f => f.id === 'data_source')
+  const confidenceFilter = columnFilters.find(f => f.id === 'confidence')
 
   const filteredRowCount = table.getFilteredRowModel().rows.length
 
@@ -411,10 +573,65 @@ export function ViolationsTable({
                      {label} ({key})
                    </SelectItem>
                  ))}
-               </SelectContent>
-             </Select>
+                </SelectContent>
+              </Select>
 
-             <div className="flex items-center gap-1">
+              {hasDataSourceField && availableDataSources.length > 0 && (
+                <Select
+                  value={(dataSourceFilter?.value as string) || 'all'}
+                  onValueChange={(value) => {
+                    if (value === 'all') {
+                      setColumnFilters(prev => prev.filter(f => f.id !== 'data_source'))
+                    } else {
+                      setColumnFilters(prev => {
+                        const filtered = prev.filter(f => f.id !== 'data_source')
+                        return [...filtered, { id: 'data_source', value }]
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[130px] h-9">
+                    <SelectValue placeholder="All Sources" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    {availableDataSources.map((source) => (
+                      <SelectItem key={source} value={source}>
+                        {DATA_SOURCE_LABELS[source] || source}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {hasConfidenceField && (
+                <Select
+                  value={(confidenceFilter?.value as string) || 'all'}
+                  onValueChange={(value) => {
+                    if (value === 'all') {
+                      setColumnFilters(prev => prev.filter(f => f.id !== 'confidence'))
+                    } else {
+                      setColumnFilters(prev => {
+                        const filtered = prev.filter(f => f.id !== 'confidence')
+                        return [...filtered, { id: 'confidence', value }]
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[140px] h-9">
+                    <SelectValue placeholder="All Confidence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Confidence</SelectItem>
+                    <SelectItem value="high">High (≥85%)</SelectItem>
+                    <SelectItem value="medium">Medium (70-84%)</SelectItem>
+                    <SelectItem value="low">Low (under 70%)</SelectItem>
+                    <SelectItem value="none">No Confidence</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              <div className="flex items-center gap-1">
                <Input
                  type="date"
                  value={dateRangeFilter?.value?.from || ''}

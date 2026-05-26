@@ -67,13 +67,13 @@ class ModelArkClient:
         self,
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        timeout: int = 60,
-        max_retries: int = 3
+        timeout: Optional[int] = None,
+        max_retries: Optional[int] = None
     ):
         self.base_url = base_url or settings.modelark_base_url
         self.api_key = api_key or settings.modelark_api_key
-        self.timeout = timeout
-        self.max_retries = max_retries
+        self.timeout = timeout if timeout is not None else settings.modelark_timeout
+        self.max_retries = max_retries if max_retries is not None else settings.modelark_max_retries
         self.model_chart = settings.model_chart_analysis
         self.model_text = settings.model_text_analysis
         self._client = None
@@ -268,17 +268,76 @@ class ModelArkClient:
             return ModelArkClient._extract_json_from_text(content)
     
     @staticmethod
+    def _extract_response_content(response: Dict[str, Any]) -> str:
+        try:
+            choices = response.get("choices", [])
+            if not choices:
+                return '{}'
+            first_choice = choices[0]
+            message = first_choice.get("message", {})
+            content = message.get("content")
+            return content if content is not None else '{}'
+        except Exception:
+            return '{}'
+    
+    @staticmethod
     def _extract_json_from_text(text: str) -> Dict[str, Any]:
-        json_pattern = r'\{[\s\S]*\}'
-        matches = re.findall(json_pattern, text)
-        
-        for match in matches:
+        code_block_pattern = r'```json\s*([\s\S]*?)\s*```'
+        code_block_matches = re.findall(code_block_pattern, text)
+        for json_content in code_block_matches:
             try:
-                result = json.loads(match)
-                logger.debug("JSON extracted from text successfully")
+                result = json.loads(json_content)
+                logger.debug("JSON extracted from code block successfully")
                 return result
             except json.JSONDecodeError:
                 continue
+        
+        def find_complete_json(s: str, start_pos: int = 0) -> Optional[str]:
+            first_brace = s.find('{', start_pos)
+            if first_brace == -1:
+                return None
+            
+            brace_count = 0
+            in_string = False
+            escape_next = False
+            
+            for i in range(first_brace, len(s)):
+                char = s[i]
+                
+                if escape_next:
+                    escape_next = False
+                    continue
+                
+                if char == '\\' and in_string:
+                    escape_next = True
+                    continue
+                
+                if char == '"':
+                    in_string = not in_string
+                    continue
+                
+                if not in_string:
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            return s[first_brace:i+1]
+            
+            return None
+        
+        pos = 0
+        while pos < len(text):
+            json_str = find_complete_json(text, pos)
+            if json_str:
+                try:
+                    result = json.loads(json_str)
+                    logger.debug("JSON extracted from text successfully")
+                    return result
+                except json.JSONDecodeError:
+                    pos = text.find(json_str, pos) + len(json_str) if json_str else pos + 1
+            else:
+                break
         
         logger.warning("No valid JSON found in response")
         return {}

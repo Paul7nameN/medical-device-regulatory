@@ -157,18 +157,18 @@ class TestValidateWithAI:
         from app.ai.integration.engine import validate_with_ai, AIValidationError
         
         with patch('app.ai.integration.engine.RegulatoryEngine') as mock_engine_class:
-            with patch('app.config.settings', new=MagicMock()):
+            with patch('app.ai.integration.engine.settings') as mock_settings:
+                mock_settings.ai_enabled = False
+                mock_settings.modelark_api_key = None
                 mock_engine = MagicMock()
                 mock_engine_class.return_value = mock_engine
                 
-                with patch('app.config.settings.ai_enabled', False):
-                    with patch('app.config.settings.modelark_api_key', None):
-                        with pytest.raises(AIValidationError):
-                            await validate_with_ai(
-                                logs=[],
-                                device_id="test",
-                                ai_required=True
-                            )
+                with pytest.raises(AIValidationError):
+                    await validate_with_ai(
+                        logs=[],
+                        device_id="test",
+                        ai_required=True
+                    )
 
 
 class TestCreateEmptyResult:

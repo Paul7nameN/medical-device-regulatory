@@ -86,8 +86,8 @@ class TestAggregate:
         report.critical_count = 0
         report.findings = []
         report.summary = {
-            "thermal": CategorySummary(passed=1, failed=1, total=2),
-            "sensor": CategorySummary(passed=1, failed=1, total=2),
+            "TEMP": CategorySummary(passed=1, failed=1, total=2),
+            "SENS": CategorySummary(passed=1, failed=1, total=2),
         }
         return report
     
@@ -118,7 +118,7 @@ class TestAggregate:
         finding = MagicMock(spec=Finding)
         finding.rule_id = "REG-TEMP-1"
         finding.rule_description = "Temperature must be 2-8C"
-        finding.category = "thermal"
+        finding.category = "TEMP"
         finding.severity = Severity.HIGH
         finding.passed = False
         finding.message = "Temperature 9.1C exceeds 8C"

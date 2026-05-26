@@ -1,6 +1,6 @@
 export { Button, buttonVariants } from './button'
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './card'
-export { Badge, SeverityBadge, DataSourceBadge, badgeVariants } from './badge'
+export { Badge, SeverityBadge, DataSourceBadge, ConfidenceBadge, badgeVariants } from './badge'
 export {
   Table,
   TableHeader,
