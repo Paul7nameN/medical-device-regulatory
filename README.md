@@ -16,7 +16,7 @@ Regulatory compliance validation system for temperature-controlled medical trans
 ## Quick Start
 
 ```bash
-git clone https://github.com/Paul7nameN/medical-device-regulatory
+git clone https://gitlab.rinftech.lan/dev/genai/medical-ai-compliance/maic-2
 cd medical-device-regulatory
 
 # With Docker
