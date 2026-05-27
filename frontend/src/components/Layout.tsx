@@ -10,6 +10,7 @@ import { DataModeBanner } from '@/components/DataModeBanner'
 import {
   Home,
   History,
+  Radio,
   AlertTriangle,
   Menu,
   Activity,
@@ -34,6 +35,12 @@ const baseNavItems: NavItem[] = [
     label: 'Home',
     icon: <Home className="h-5 w-5" />,
     path: '/',
+  },
+  {
+    id: 'live',
+    label: 'Live Transport',
+    icon: <Radio className="h-5 w-5" />,
+    path: '/live',
   },
   {
     id: 'history',
