@@ -194,6 +194,18 @@ async def run_multi_modal_analysis(
         alignment_uncertain: bool = False
         chart_analysis_results: List[ChartAnalysisResult] = []
 
+        all_filenames: List[str] = []
+        for _, _, filename in log_files_data:
+            all_filenames.append(filename)
+        for _, _, filename in chart_files_data:
+            all_filenames.append(filename)
+
+        device_id: str = "multi-modal-analysis"
+        if len(all_filenames) == 1:
+            device_id = all_filenames[0]
+        elif len(all_filenames) > 1:
+            device_id = f"{all_filenames[0]} + {len(all_filenames) - 1} more"
+
         _update_session_status(session_id, AnalysisStatus.PROCESSING, "Ingesting log files", 0.10)
 
         if log_files_data:
@@ -343,7 +355,7 @@ async def run_multi_modal_analysis(
                 
                 base_report = regulatory_engine.validate(
                     logs=merged_entries,
-                    device_id="multi-modal-analysis",
+                    device_id=device_id,
                     rule_set=rule_set,
                     merge_with_default=False,
                 )
@@ -366,7 +378,7 @@ async def run_multi_modal_analysis(
                 if len(chart_analysis_results) == 1:
                     base_report = create_compliance_report_from_chart_result(
                         chart_analysis_results[0],
-                        device_id="multi-modal-analysis",
+                        device_id=device_id,
                     )
                 else:
                     all_findings = []
@@ -403,7 +415,7 @@ async def run_multi_modal_analysis(
                     passed_count = 0
                     
                     base_report = ComplianceReport(
-                        device_id="multi-modal-analysis",
+                        device_id=device_id,
                         analyzed_at=datetime.now(),
                         total_entries=total_entries,
                         time_range_start=min(time_range_starts) if time_range_starts else None,
@@ -516,7 +528,7 @@ async def run_multi_modal_analysis(
 
                 persistence = PersistenceService(db)
                 session = await persistence.save_analysis_session(
-                    device_id="multi-modal-analysis",
+                    device_id=device_id,
                     logs=merged_entries,
                     report=final_report,
                     config=config_dict,
