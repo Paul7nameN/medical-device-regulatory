@@ -61,6 +61,7 @@ export function LiveTransportPage() {
   const [deviceId, setDeviceId] = useState('MED-UNIT-DEMO-01')
   const [logFileName, setLogFileName] = useState<string | null>(null)
   const [logLineCount, setLogLineCount] = useState(0)
+  const [totalReplayBatches, setTotalReplayBatches] = useState(0)
   const [ticks, setTicks] = useState<LiveTelemetryTick[]>([])
   const [alerts, setAlerts] = useState<LiveAlert[]>([])
   const [tickIndex, setTickIndex] = useState(0)
@@ -220,31 +221,48 @@ export function LiveTransportPage() {
     }
   }, [clearTickInterval])
 
-  const startTransport = useCallback(() => {
-    stopTransport()
-    setTicks([])
-    setAlerts([])
-    setTickIndex(0)
-    setElapsedSec(0)
-    simIndexRef.current = 0
-    logIndexRef.current = 0
-    monitorRef.current = createMonitorState()
+  const startTransport = useCallback(
+    (forceRestart = false) => {
+      stopTransport()
 
-    if (sourceMode === 'log_file' && logBatchesRef.current.length === 0) {
-      return
-    }
+      const isLogResume =
+        !forceRestart &&
+        sourceMode === 'log_file' &&
+        logIndexRef.current > 0 &&
+        logIndexRef.current < logBatchesRef.current.length
 
-    const start = Date.now()
-    sessionStartRef.current = start
-    setStartedAt(start)
-    setIsRunning(true)
+      if (!isLogResume) {
+        setTicks([])
+        setAlerts([])
+        setTickIndex(0)
+        setElapsedSec(0)
+        simIndexRef.current = 0
+        logIndexRef.current = 0
+        monitorRef.current = createMonitorState()
+      } else {
+        setTickIndex(logIndexRef.current)
+      }
 
-    elapsedRef.current = setInterval(() => {
-      setElapsedSec(Math.floor((Date.now() - start) / 1000))
-    }, 1000)
+      if (sourceMode === 'log_file' && logBatchesRef.current.length === 0) {
+        return
+      }
 
-    runOneTick()
-  }, [sourceMode, stopTransport, runOneTick])
+      const sessionElapsedBase = isLogResume ? elapsedSec : 0
+      const start = Date.now()
+      sessionStartRef.current = start
+      setStartedAt(start)
+      setIsRunning(true)
+
+      elapsedRef.current = setInterval(() => {
+        setElapsedSec(sessionElapsedBase + Math.floor((Date.now() - start) / 1000))
+      }, 1000)
+
+      if (!isLogResume) {
+        runOneTick()
+      }
+    },
+    [elapsedSec, sourceMode, stopTransport, runOneTick]
+  )
 
   useEffect(() => {
     if (!isRunning) return
@@ -263,17 +281,21 @@ export function LiveTransportPage() {
       const { lines, name } = await readLogFile(file)
       logLinesRef.current = lines
       logBatchesRef.current = parseLogLinesToReplayBatches(lines)
+      setTotalReplayBatches(logBatchesRef.current.length)
       setLogFileName(name)
       setLogLineCount(lines.length)
       setSourceMode('log_file')
       setTicks([])
       setAlerts([])
       setTickIndex(0)
+      logIndexRef.current = 0
+      monitorRef.current = createMonitorState()
     } catch {
       setLogFileName(null)
       setLogLineCount(0)
       logBatchesRef.current = []
       logLinesRef.current = []
+      setTotalReplayBatches(0)
     }
 
     e.target.value = ''
@@ -283,6 +305,12 @@ export function LiveTransportPage() {
     if (isRunning) return
     logBatchesRef.current = []
     logLinesRef.current = []
+    setTotalReplayBatches(0)
+    setTicks([])
+    setAlerts([])
+    setTickIndex(0)
+    logIndexRef.current = 0
+    monitorRef.current = createMonitorState()
     setLogFileName(null)
     setLogLineCount(0)
     setSourceMode('simulated')
@@ -296,6 +324,13 @@ export function LiveTransportPage() {
 
   const canStart =
     sourceMode === 'simulated' || (sourceMode === 'log_file' && logBatchesRef.current.length > 0)
+
+  const canResumeLog =
+    !isRunning &&
+    sourceMode === 'log_file' &&
+    tickIndex > 0 &&
+    totalReplayBatches > 0 &&
+    tickIndex < totalReplayBatches
 
   return (
     <div className="space-y-6 relative">
@@ -333,8 +368,12 @@ export function LiveTransportPage() {
           )}
           {startedAt && (
             <Badge variant="outline">
-              {formatElapsed(elapsedSec)} · {tickIndex} ticks
+              {formatElapsed(elapsedSec)} · {tickIndex}
+              {totalReplayBatches > 0 ? ` / ${totalReplayBatches}` : ''} ticks
             </Badge>
+          )}
+          {canResumeLog && (
+            <Badge variant="secondary">Paused — resume available</Badge>
           )}
         </div>
       </div>
@@ -461,10 +500,25 @@ export function LiveTransportPage() {
 
             <div className="flex gap-2 sm:ml-auto">
               {!isRunning ? (
-                <Button onClick={startTransport} disabled={!canStart} className="touch-target">
-                  <Play className="h-4 w-4 mr-2" />
-                  Start transport
-                </Button>
+                <>
+                  <Button
+                    onClick={() => startTransport(false)}
+                    disabled={!canStart}
+                    className="touch-target"
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    {canResumeLog ? 'Continue transport' : 'Start transport'}
+                  </Button>
+                  {canResumeLog && (
+                    <Button
+                      onClick={() => startTransport(true)}
+                      variant="outline"
+                      className="touch-target"
+                    >
+                      Restart
+                    </Button>
+                  )}
+                </>
               ) : (
                 <Button onClick={stopTransport} variant="destructive" className="touch-target">
                   <Square className="h-4 w-4 mr-2" />
