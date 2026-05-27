@@ -12,7 +12,6 @@ import {
   History,
   AlertTriangle,
   Menu,
-  Shield,
   Activity,
   Sun,
   Moon,
@@ -281,6 +280,7 @@ function MobileNav({ open, setOpen }: { open: boolean; setOpen: (open: boolean) 
 
    return (
      <div className="min-h-screen bg-background flex">
+      <Sidebar />
        <MobileNav open={mobileNavOpen} setOpen={setMobileNavOpen} />
 
        <div className="flex-1 flex flex-col min-w-0">

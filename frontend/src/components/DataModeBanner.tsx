@@ -46,7 +46,6 @@ export function DataModeBanner() {
   const result = latestAnalysis?.validationResult
   const passed = result?.passed_count || 0
   const failed = result?.failed_count || 0
-  const total = passed + failed
   const entries = result?.total_entries || 0
   const deviceId = latestAnalysis?.deviceId || 'unknown'
 

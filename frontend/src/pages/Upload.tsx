@@ -155,7 +155,7 @@ export function UploadPage() {
         maxSize={50 * 1024 * 1024}
       />
 
-      {showResult && uploadResult && (
+      {showResult && !!uploadResult && (
         <Card className="border-green-200 bg-green-50">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium flex items-center gap-2">
