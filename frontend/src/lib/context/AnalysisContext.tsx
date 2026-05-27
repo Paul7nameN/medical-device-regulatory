@@ -14,7 +14,6 @@ import type {
   ExtractedRule,
   RulesetMeta,
   MultiModalStatusResponse,
-  MultiModalResultsResponse,
 } from '@/lib/api'
 import {
   validationApi,

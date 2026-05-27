@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import {
   Card,
   CardContent,
@@ -10,14 +10,9 @@ import {
 } from '@/components/ui'
 import { Upload, FileText, Image, File, X, CheckCircle2, AlertCircle, Loader2, FileCode, FileCheck, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { UploadFileItem, ValidationResult, ExtractedRule } from '@/lib/api'
-import { logsApi, aiApi, reportsApi, multimodalApi, type RulesetMetaInput, type MultiModalAnalyzeResponse, type MultiModalStatusResponse } from '@/lib/api'
+import type { UploadFileItem, ExtractedRule } from '@/lib/api'
+import { logsApi, aiApi, reportsApi, multimodalApi, type RulesetMetaInput } from '@/lib/api'
 import { useAnalysis } from '@/lib/context/AnalysisContext'
-import { 
-  chartViolationsToFindings, 
-  extractTemperatureFromChartResult,
-  type TemperatureDataPoint 
-} from '@/lib/utils/transformers'
 
 export type FileIntent = 'log_file' | 'constraints_document' | 'image' | 'unknown'
 
@@ -73,27 +68,6 @@ function detectFileIntent(file: File, textPreview?: string): FileIntent {
    
    return 'unknown'
  }
-
-interface FileItemWithIntent extends UploadFileItem {
-  intent: FileIntent
-  userOverride?: FileIntent
-  textPreview?: string
-}
-
-interface ExtractedRulesState {
-  rules: ExtractedRule[]
-  meta: RulesetMetaInput
-  sourceFileId: string
-}
-
-interface MultiFileUploadState {
-  logFiles: FileItemWithIntent[]
-  constraintsFiles: FileItemWithIntent[]
-  extractedRules: ExtractedRulesState | null
-  isExtracting: boolean
-  extractionError: string | null
-  mergeWithDefaultRules: boolean
-}
 
 const ACCEPTED_TYPES = {
   'text/plain': 'txt',
@@ -398,23 +372,6 @@ export function FileUploadZone({
     }
   }
 
-   const uploadAllFiles = async () => {
-     const pendingFiles = files.filter(f => f.status === 'pending' || f.status === 'error')
-     
-     const sortedFiles = [...pendingFiles].sort((a, b) => {
-       const aPriority = a.intent === 'constraints_document' ? 0 : 
-                        a.intent === 'log_file' ? 2 : 1
-       const bPriority = b.intent === 'constraints_document' ? 0 : 
-                        b.intent === 'log_file' ? 2 : 1
-       return aPriority - bPriority
-     })
-     
-     console.log('📤 [uploadAllFiles] Uploading:', sortedFiles.length, 'files (sorted: constraints first)')
-     for (const file of sortedFiles) {
-       await uploadFile(file)
-     }
-   }
-
    const uploadAllFilesBatch = async () => {
      console.log('📤 [uploadAllFilesBatch] Starting batch mode analysis')
 
@@ -467,6 +424,13 @@ export function FileUploadZone({
      }
    }
 
+  const uploadAllFilesIndividually = async () => {
+    const pendingFiles = files.filter((f) => f.status === 'pending' || f.status === 'error')
+    for (const file of pendingFiles) {
+      await uploadFile(file)
+    }
+  }
+
    const getFileIcon = (type: string, name: string, intent?: FileIntent) => {
     if (intent === 'constraints_document') {
       return <FileCode className="h-5 w-5 text-purple-600 dark:text-purple-400" />
@@ -490,8 +454,6 @@ export function FileUploadZone({
   }
 
   const pendingCount = files.filter(f => f.status === 'pending' || f.status === 'error').length
-  const uploadingCount = files.filter(f => f.status === 'uploading').length
-  const successCount = files.filter(f => f.status === 'success').length
 
    const fileGroupCounts = useMemo(() => {
      const counts = { log_file: 0, constraints_document: 0, image: 0, unknown: 0 }
@@ -779,6 +741,16 @@ export function FileUploadZone({
                          Analyze {pendingCount} file{pendingCount !== 1 ? 's' : ''}
                        </>
                      )}
+                   </Button>
+
+                   <Button
+                     onClick={uploadAllFilesIndividually}
+                     disabled={isAnalyzing}
+                     variant="outline"
+                     className="touch-target ml-2"
+                   >
+                     <Upload className="h-4 w-4 mr-2" />
+                     Upload individually
                    </Button>
                  </div>
               )}

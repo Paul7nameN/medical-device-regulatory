@@ -124,6 +124,40 @@ export function calculateComplianceScoreFromCounts(
   return calculateComplianceScore(passedCount, passedCount + failedCount)
 }
 
+export function calculateComplianceScoreFromSeverityCounts(
+  passedCount: number,
+  failedBySeverity: Pick<SeverityCounts, 'critical' | 'high' | 'medium' | 'low' | 'info'>
+): number {
+  const failedCount =
+    failedBySeverity.critical +
+    failedBySeverity.high +
+    failedBySeverity.medium +
+    failedBySeverity.low +
+    failedBySeverity.info
+
+  const totalRules = passedCount + failedCount
+  if (totalRules === 0) return 100
+
+  // Weight penalties: critical reduces the score most.
+  const weights = {
+    critical: 1,
+    high: 0.7,
+    medium: 0.4,
+    low: 0.2,
+    info: 0.1,
+  } as const
+
+  const weightedPenalty =
+    failedBySeverity.critical * weights.critical +
+    failedBySeverity.high * weights.high +
+    failedBySeverity.medium * weights.medium +
+    failedBySeverity.low * weights.low +
+    failedBySeverity.info * weights.info
+
+  const rawScore = 100 - (weightedPenalty / totalRules) * 100
+  return Math.max(0, Math.min(100, Math.round(rawScore)))
+}
+
 const TEMP_READING_PATTERN = /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+TEMP_READING\s+([\d.]+)C?$/i
 
 export function extractTemperatureFromRawLogs(

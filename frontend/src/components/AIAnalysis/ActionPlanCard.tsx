@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button } from '@/components/ui'
-import { ChevronDown, ChevronUp, ClipboardList, AlertTriangle, Zap, Clock, Wrench } from 'lucide-react'
+import { ChevronDown, ChevronUp, ClipboardList, AlertTriangle, Clock, Wrench } from 'lucide-react'
 import type { ActionPlan, ActionItem } from '@/lib/api'
 import { RISK_LEVEL_COLORS } from './'
 import { cn } from '@/lib/utils'
@@ -66,7 +66,7 @@ function ActionItemCard({ item }: { item: ActionItem }) {
   )
 }
 
-function ActionSection({ title, items, icon: Icon, tabValue }: { title: string; items: ActionItem[]; icon: React.ElementType; tabValue: string }) {
+function ActionSection({ title, items, icon: Icon }: { title: string; items: ActionItem[]; icon: React.ElementType }) {
   if (!items || items.length === 0) {
     return (
       <div className="text-center py-8 text-slate-500">
@@ -124,7 +124,6 @@ export function ActionPlanCard({ actionPlan, className }: ActionPlanCardProps) {
               title="Immediate (0-1h)"
               items={actionPlan.immediate_actions_0_1h}
               icon={AlertTriangle}
-              tabValue="immediate"
             />
           </TabsContent>
           <TabsContent value="short" className="mt-4">
@@ -132,7 +131,6 @@ export function ActionPlanCard({ actionPlan, className }: ActionPlanCardProps) {
               title="Short Term (24h)"
               items={actionPlan.short_term_24h}
               icon={Clock}
-              tabValue="short"
             />
           </TabsContent>
           <TabsContent value="long" className="mt-4">
@@ -140,7 +138,6 @@ export function ActionPlanCard({ actionPlan, className }: ActionPlanCardProps) {
               title="Long Term Maintenance"
               items={actionPlan.long_term_maintenance}
               icon={Wrench}
-              tabValue="long"
             />
           </TabsContent>
         </Tabs>

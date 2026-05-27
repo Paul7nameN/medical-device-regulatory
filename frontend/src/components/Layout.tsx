@@ -10,9 +10,9 @@ import { DataModeBanner } from '@/components/DataModeBanner'
 import {
   Home,
   History,
+  Radio,
   AlertTriangle,
   Menu,
-  Shield,
   Activity,
   Sun,
   Moon,
@@ -35,6 +35,12 @@ const baseNavItems: NavItem[] = [
     label: 'Home',
     icon: <Home className="h-5 w-5" />,
     path: '/',
+  },
+  {
+    id: 'live',
+    label: 'Live Transport',
+    icon: <Radio className="h-5 w-5" />,
+    path: '/live',
   },
   {
     id: 'history',
@@ -281,6 +287,7 @@ function MobileNav({ open, setOpen }: { open: boolean; setOpen: (open: boolean) 
 
    return (
      <div className="min-h-screen bg-background flex">
+      <Sidebar />
        <MobileNav open={mobileNavOpen} setOpen={setMobileNavOpen} />
 
        <div className="flex-1 flex flex-col min-w-0">

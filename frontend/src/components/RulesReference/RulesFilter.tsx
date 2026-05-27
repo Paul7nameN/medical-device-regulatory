@@ -11,9 +11,7 @@ import type { RuleCategory, ValidationType } from '@/lib/constants/regulatoryRul
 import {
   CATEGORY_NAMES,
   getCategories,
-  getValidationTypes,
 } from '@/lib/constants/regulatoryRules'
-import { cn } from '@/lib/utils'
 
 interface RulesFilterProps {
   selectedCategory: RuleCategory | null
@@ -33,7 +31,6 @@ export function RulesFilter({
   filteredCount,
 }: RulesFilterProps) {
   const categories = getCategories()
-  const validationTypes = getValidationTypes()
 
   const hasFilters = selectedCategory !== null || selectedValidationType !== null
 

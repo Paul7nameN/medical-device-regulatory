@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Tabs,
@@ -12,18 +12,18 @@ import { ComplianceScore, ComplianceScoreSkeleton } from '@/components/Complianc
 import { GraphSection } from '@/components/GraphSection'
 import { ViolationsTable } from '@/components/ViolationsTable'
 import { ErrorState } from '@/components/ErrorState'
+import { ExportReportButton } from '@/components/ExportReportButton'
 import { 
   type RegCategory, 
   type CorrelationInsight, 
   type ConflictingFinding,
   type TimelineEvent,
   type AggregatedComplianceReport,
-  multimodalApi,
 } from '@/lib/api'
 import {
   type SeverityCounts,
   findingsToDetectedViolations,
-  calculateComplianceScoreFromCounts,
+  calculateComplianceScoreFromSeverityCounts,
   groupViolationsByCategory,
 } from '@/lib/utils/transformers'
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/components/ui'
@@ -45,13 +45,10 @@ import {
   BookOpen,
   Loader2,
   Clock,
-  Thermometer,
   Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalysis } from '@/lib/context/AnalysisContext'
-import { REGULATORY_CONSTANTS } from '@/lib/constants'
-import type { TemperatureDataPoint } from '@/components/TemperatureChart'
 
 interface MultiModalData {
   report?: AggregatedComplianceReport
@@ -62,8 +59,6 @@ interface MultiModalData {
   alignment_confidence?: number
   alignment_method?: string
 }
-
-const safeRange = REGULATORY_CONSTANTS.safeTemperatureRange
 
 function parseTimestampUTC(timestamp: string): Date {
   const hasTimezone = /Z|[+-]\d{2}:\d{2}$/.test(timestamp)
@@ -213,8 +208,18 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
       return null
     }
     const r = latestAnalysis.validationResult
+
+    const failedFindings = r.findings.filter((f) => !f.passed)
+    const failedBySeverity = {
+      critical: failedFindings.filter((f) => f.severity === 'critical').length,
+      high: failedFindings.filter((f) => f.severity === 'high').length,
+      medium: failedFindings.filter((f) => f.severity === 'medium').length,
+      low: failedFindings.filter((f) => f.severity === 'low').length,
+      info: failedFindings.filter((f) => f.severity === 'info').length,
+    }
+
     return {
-      score: calculateComplianceScoreFromCounts(r.passed_count, r.failed_count),
+      score: calculateComplianceScoreFromSeverityCounts(r.passed_count, failedBySeverity),
       total: r.passed_count + r.failed_count,
       passed: r.passed_count,
       failed: r.failed_count,
@@ -332,6 +337,17 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
               : 'MED-THERM compliance overview for your medical devices'}
           </p>
         </div>
+
+        {latestAnalysis && complianceScore && (
+          <div className="flex items-center gap-2">
+            <ExportReportButton
+              analysis={latestAnalysis}
+              complianceScore={complianceScore.score}
+              severityCounts={severityCounts ?? undefined}
+              telemetrySeries={telemetrySeries}
+            />
+          </div>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -410,13 +426,18 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
                   </CardContent>
                 </Card>
               ) : (
-                <ComplianceScore
-                  score={complianceScore.score}
-                  totalRules={complianceScore.total}
-                  passedRules={complianceScore.passed}
-                  failedRules={complianceScore.failed}
-                  className="h-full"
-                />
+                <>
+                  <ComplianceScore
+                    score={complianceScore.score}
+                    totalRules={complianceScore.total}
+                    passedRules={complianceScore.passed}
+                    failedRules={complianceScore.failed}
+                    className="h-full"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Notă: scorul de conformitate este orientativ și nu te poți baza 100% pe el; rezultatele depind de calitatea logurilor și de regulile validate.
+                  </p>
+                </>
               )}
             </div>
 

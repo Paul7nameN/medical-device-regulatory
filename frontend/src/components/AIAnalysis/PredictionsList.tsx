@@ -1,7 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle, Badge, Progress } from '@/components/ui'
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui'
 import { Sparkles, Clock, AlertTriangle, ShieldCheck } from 'lucide-react'
 import type { Prediction } from '@/lib/api'
-import { RISK_LEVEL_COLORS } from './'
 import { cn } from '@/lib/utils'
 
 interface PredictionsListProps {
