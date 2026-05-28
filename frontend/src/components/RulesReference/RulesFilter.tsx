@@ -48,8 +48,7 @@ export function RulesFilter({
         </span>
       </div>
 
-      {/* Grid cu poziții fixe - dropdown-urile NU se mișcă */}
-      <div className="grid grid-cols-[180px_140px_auto] items-center gap-3 flex-shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-[180px_140px_auto] items-center gap-3 flex-shrink-0">
         <Select
           value={selectedCategory || 'all'}
           onValueChange={(value) => onCategoryChange(value === 'all' ? null : (value as RuleCategory))}

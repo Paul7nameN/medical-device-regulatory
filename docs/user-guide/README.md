@@ -6,6 +6,8 @@ Complete guide for MED-THERM end users.
 
 - [Dashboard Overview](dashboard-overview.md)
 
+- [Live Transport Monitoring](live-monitoring.md)
+
 - [How to Upload Files](uploading-files.md)
 
 - [How to Analyze Results](analyzing-results.md)

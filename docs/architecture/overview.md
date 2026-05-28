@@ -102,12 +102,13 @@ User uploads file (.txt / .png / .jpg / .md)
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    Frontend Dashboard                                 │
 │  • Overview                                                           │
-│  • Temperature Chart                                                  │
+│  • Graphs (Temperature / Fan / Humidity)                              │
 │  • Violations Table (severity-sorted: CRITICAL → HIGH → ...)        │
 │  • Unified Timeline (with source badges)                              │
 │  • Correlation Insights                                               │
 │  • Rules Reference                                                    │
 │  • History                                                            │
+│  • Live Transport Monitoring (persistent background context)         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 

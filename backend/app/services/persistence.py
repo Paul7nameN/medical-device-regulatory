@@ -571,13 +571,15 @@ class PersistenceService:
             return 100.0
 
         summary = aggregated_report.summary or {}
-        total = summary.get('total_rules_evaluated', 0) or 0
-        if total == 0:
-            return 100.0
 
-        critical = summary.get('critical', 0) or 0
-        high = summary.get('high', 0) or 0
+        critical = summary.get('critical_count', 0) or summary.get('critical', 0) or 0
+        high = summary.get('high_count', 0) or summary.get('high', 0) or 0
+        medium = summary.get('medium_count', 0) or summary.get('medium', 0) or 0
+        low = summary.get('low_count', 0) or summary.get('low', 0) or 0
 
-        penalty = (critical * 15) + (high * 5)
+        if critical > 0:
+            return 0.0
+
+        penalty = (critical * 35) + (high * 15) + (medium * 5) + (low * 1)
         score = max(0.0, 100.0 - penalty)
         return score

@@ -223,6 +223,7 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
       total: r.passed_count + r.failed_count,
       passed: r.passed_count,
       failed: r.failed_count,
+      hasCritical: failedBySeverity.critical > 0,
     }
   }, [hasData, latestAnalysis])
 
@@ -351,36 +352,40 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full sm:w-auto grid grid-cols-5 sm:inline-flex">
-          <TabsTrigger value="overview" className="touch-target">
-            <BarChart3 className="h-4 w-4 mr-2 hidden sm:inline" />
-            Overview
+        <TabsList className="w-full sm:w-auto flex flex-row overflow-x-auto sm:overflow-visible sm:grid sm:grid-cols-5 gap-1 sm:gap-0 pb-1 sm:pb-0">
+          <TabsTrigger value="overview" className="touch-target flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-16 sm:min-w-0 py-2 sm:py-0">
+            <BarChart3 className="h-4 w-4" />
+            <span className="text-xs sm:text-sm">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="graphs" className="touch-target">
-            <LineChart className="h-4 w-4 mr-2 hidden sm:inline" />
-            Graphs
+          <TabsTrigger value="graphs" className="touch-target flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-16 sm:min-w-0 py-2 sm:py-0">
+            <LineChart className="h-4 w-4" />
+            <span className="text-xs sm:text-sm">Graphs</span>
           </TabsTrigger>
-          <TabsTrigger value="violations" className="touch-target">
-            <AlertTriangle className="h-4 w-4 mr-2 hidden sm:inline" />
-            Violations
-            {criticalCount > 0 && (
-              <Badge variant="critical" className="ml-2 hidden sm:inline-flex">
-                {criticalCount}
-              </Badge>
-            )}
+          <TabsTrigger value="violations" className="touch-target flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-16 sm:min-w-0 py-2 sm:py-0 relative">
+            <div className="relative">
+              <AlertTriangle className="h-4 w-4" />
+              {criticalCount > 0 && (
+                <span className="absolute -top-2 -right-3 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white px-1">
+                  {criticalCount > 9 ? '9+' : criticalCount}
+                </span>
+              )}
+            </div>
+            <span className="text-xs sm:text-sm">Violations</span>
           </TabsTrigger>
-          <TabsTrigger value="timeline" className="touch-target">
-            <Clock className="h-4 w-4 mr-2 hidden sm:inline" />
-            Timeline
-            {hasMultiModalData && multiModalData?.timeline_events?.length ? (
-              <Badge variant="info" className="ml-2 hidden sm:inline-flex">
-                {multiModalData.timeline_events.length}
-              </Badge>
-            ) : null}
+          <TabsTrigger value="timeline" className="touch-target flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-16 sm:min-w-0 py-2 sm:py-0 relative">
+            <div className="relative">
+              <Clock className="h-4 w-4" />
+              {hasMultiModalData && multiModalData?.timeline_events?.length ? (
+                <span className="absolute -top-2 -right-3 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-medium text-white px-1">
+                  {multiModalData.timeline_events.length > 9 ? '9+' : multiModalData.timeline_events.length}
+                </span>
+              ) : null}
+            </div>
+            <span className="text-xs sm:text-sm">Timeline</span>
           </TabsTrigger>
-          <TabsTrigger value="rules" className="touch-target">
-            <BookOpen className="h-4 w-4 mr-2 hidden sm:inline" />
-            Rules
+          <TabsTrigger value="rules" className="touch-target flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-16 sm:min-w-0 py-2 sm:py-0">
+            <BookOpen className="h-4 w-4" />
+            <span className="text-xs sm:text-sm">Rules</span>
           </TabsTrigger>
         </TabsList>
 
@@ -425,20 +430,16 @@ export function DashboardPage({ isLoading = false }: DashboardPageProps) {
                     />
                   </CardContent>
                 </Card>
-              ) : (
-                <>
-                  <ComplianceScore
-                    score={complianceScore.score}
-                    totalRules={complianceScore.total}
-                    passedRules={complianceScore.passed}
-                    failedRules={complianceScore.failed}
-                    className="h-full"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Notă: scorul de conformitate este orientativ și nu te poți baza 100% pe el; rezultatele depind de calitatea logurilor și de regulile validate.
-                  </p>
-                </>
-              )}
+               ) : (
+                 <ComplianceScore
+                   score={complianceScore.score}
+                   totalRules={complianceScore.total}
+                   passedRules={complianceScore.passed}
+                   failedRules={complianceScore.failed}
+                   hasCritical={complianceScore.hasCritical}
+                   className="h-full"
+                 />
+               )}
             </div>
 
             <div className="flex flex-col gap-4">

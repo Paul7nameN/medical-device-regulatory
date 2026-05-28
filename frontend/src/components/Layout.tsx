@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  Sheet,
-  SheetContent,
   Button,
   Badge,
 } from '@/components/ui'
 import { DataModeBanner } from '@/components/DataModeBanner'
+import { ActiveTransportBanner } from '@/components/ActiveTransportBanner'
 import {
   Home,
   History,
@@ -16,10 +15,12 @@ import {
   Activity,
   Sun,
   Moon,
+  ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAnalysis } from '@/lib/context/AnalysisContext'
 import { useTheme } from '@/lib/context/ThemeContext'
+import { useLiveTransport } from '@/lib/context/LiveTransportContext'
 
 interface NavItem {
   id: string
@@ -50,9 +51,10 @@ const baseNavItems: NavItem[] = [
   },
 ]
 
-function Sidebar() {
+function Sidebar({ isOpen }: { isOpen: boolean }) {
   const location = useLocation()
   const { latestAnalysis } = useAnalysis()
+  const { isRunning, alerts } = useLiveTransport()
 
   const violationCount = useMemo(() => {
     if (!latestAnalysis?.validationResult?.findings) return undefined
@@ -62,148 +64,76 @@ function Sidebar() {
     return count > 0 ? count : undefined
   }, [latestAnalysis])
 
-  const navItems = useMemo(() => {
-    return baseNavItems.map((item) =>
-      item.id === 'violations' ? { ...item, badge: violationCount } : item
-    )
-  }, [violationCount])
-
-  return (
-     <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:border-r lg:border-border lg:bg-card lg:h-screen lg:sticky lg:top-0">
-       <div className="p-4 border-b border-border">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="p-1 bg-primary/10 rounded-lg">
-              <img src="/favicon.png" alt="MED-THERM Logo" className="h-11 w-11" />
-            </div>
-            <div>
-              <h1 className="font-semibold text-foreground text-lg font-heading">
-                MED-THERM
-              </h1>
-              <p className="text-xs text-muted-foreground">Compliance Engine</p>
-            </div>
-          </Link>
-       </div>
-
-       <nav className="flex-1 p-4 space-y-1">
-         {navItems.map((item) => {
-           const isActive = location.pathname === item.path
-           return (
-             <Link
-               key={item.id}
-               to={item.path}
-               className={cn(
-                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all touch-target',
-                 isActive
-                   ? 'bg-primary/10 text-primary'
-                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-               )}
-               aria-current={isActive ? 'page' : undefined}
-             >
-               {item.icon}
-               <span>{item.label}</span>
-               {item.badge !== undefined && item.badge > 0 && (
-                 <Badge
-                   variant={item.badge > 2 ? 'destructive' : 'secondary'}
-                   className="ml-auto"
-                 >
-                   {item.badge}
-                 </Badge>
-               )}
-             </Link>
-           )
-         })}
-       </nav>
-
-       <div className="p-4 border-t border-border">
-         <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg">
-           <div className="flex-shrink-0 w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
-             <Activity className="h-5 w-5 text-primary" />
-           </div>
-           <div className="flex-1 min-w-0">
-             <p className="text-sm font-medium text-foreground">
-               System Status
-             </p>
-             <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-               <span className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full animate-pulse" />
-               Connected
-             </p>
-           </div>
-         </div>
-       </div>
-     </aside>
-  )
-}
-
-function MobileNav({ open, setOpen }: { open: boolean; setOpen: (open: boolean) => void }) {
-  const location = useLocation()
-  const { latestAnalysis } = useAnalysis()
-
-  const violationCount = useMemo(() => {
-    if (!latestAnalysis?.validationResult?.findings) return undefined
-    const findings = latestAnalysis.validationResult.findings
-    if (!Array.isArray(findings)) return undefined
-    const count = findings.filter((f: any) => f && !f.passed).length
-    return count > 0 ? count : undefined
-  }, [latestAnalysis])
+  const hasLiveAlerts = alerts.length > 0
+  const hasCriticalLiveAlerts = alerts.some((a) => a.severity === 'critical' || a.severity === 'high')
 
   const navItems = useMemo(() => {
-    return baseNavItems.map((item) =>
-      item.id === 'violations' ? { ...item, badge: violationCount } : item
-    )
-  }, [violationCount])
+    return baseNavItems.map((item) => {
+      if (item.id === 'violations') {
+        return { ...item, badge: violationCount }
+      }
+      if (item.id === 'live' && isRunning) {
+        return {
+          ...item,
+          isLive: true,
+          liveHasCritical: hasCriticalLiveAlerts,
+          badge: hasLiveAlerts ? alerts.length : undefined,
+        }
+      }
+      return item
+    })
+  }, [violationCount, isRunning, hasLiveAlerts, hasCriticalLiveAlerts, alerts.length])
 
    return (
-     <Sheet open={open} onOpenChange={setOpen}>
-       <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0">
-         <div className="p-4 border-b border-border">
-            <Link
-              to="/"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3"
-            >
-              <div className="p-1.5 bg-primary/10 rounded-lg">
-                <img src="/favicon.png" alt="MED-THERM Logo" className="h-7 w-7" />
-              </div>
-              <div>
-                <h1 className="font-semibold text-foreground text-lg font-heading">
-                  MED-THERM
-                </h1>
-                <p className="text-xs text-muted-foreground">Compliance Engine</p>
-              </div>
-            </Link>
-         </div>
+      <aside className={cn(
+        "flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out flex-shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto",
+        isOpen ? "w-64" : "w-20"
+      )}>
+       <nav className="flex-1 p-4 space-y-1">
+          {navItems.map((item: any) => {
+            const isActive = location.pathname === item.path
+            return (
+              <Link
+                key={item.id}
+                to={item.path}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all touch-target relative',
+                  !isOpen && 'justify-center px-2',
+                  isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <div className="relative">
+                  {item.icon}
+                  {item.isLive && (
+                    <span className={cn(
+                      'absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-pulse',
+                      item.liveHasCritical ? 'bg-red-500' : 'bg-primary'
+                    )} />
+                  )}
+                </div>
+                {isOpen && (
+                  <>
+                    <span className="truncate">{item.label}</span>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <Badge
+                        variant={item.badge > 2 || item.liveHasCritical ? 'critical' : 'secondary'}
+                        className="ml-auto flex-shrink-0"
+                      >
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </>
+                )}
+              </Link>
+            )
+          })}
+        </nav>
 
-         <nav className="p-4 space-y-1">
-           {navItems.map((item) => {
-             const isActive = location.pathname === item.path
-             return (
-               <Link
-                 key={item.id}
-                 to={item.path}
-                 onClick={() => setOpen(false)}
-                 className={cn(
-                   'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all touch-target',
-                   isActive
-                     ? 'bg-primary/10 text-primary'
-                     : 'text-muted-foreground hover:bg-muted'
-                 )}
-               >
-                 {item.icon}
-                 <span>{item.label}</span>
-                 {item.badge !== undefined && item.badge > 0 && (
-                   <Badge
-                     variant={item.badge > 2 ? 'destructive' : 'secondary'}
-                     className="ml-auto"
-                   >
-                     {item.badge}
-                   </Badge>
-                 )}
-               </Link>
-             )
-           })}
-         </nav>
-
-         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+       {isOpen && (
+         <div className="p-4 border-t border-border">
            <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg">
              <div className="flex-shrink-0 w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
                <Activity className="h-5 w-5 text-primary" />
@@ -213,98 +143,113 @@ function MobileNav({ open, setOpen }: { open: boolean; setOpen: (open: boolean) 
                  System Status
                </p>
                <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                 <span className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full" />
+                 <span className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full animate-pulse" />
                  Connected
                </p>
              </div>
            </div>
          </div>
-       </SheetContent>
-     </Sheet>
-   )
- }
+       )}
+     </aside>
+  )
+}
 
- function Header({ onMenuClick }: { onMenuClick: () => void }) {
-   const location = useLocation()
-   const { theme, toggleTheme } = useTheme()
+function Header({ onMenuClick, sidebarOpen }: { onMenuClick: () => void; sidebarOpen: boolean }) {
+  const location = useLocation()
+  const { theme, toggleTheme } = useTheme()
 
-   const currentPage = baseNavItems.find((item) => item.path === location.pathname)
+  const currentPage = baseNavItems.find((item) => item.path === location.pathname)
+  const isHome = location.pathname === '/'
 
-   return (
-     <header className="sticky top-0 z-40 bg-card/80 backdrop-blur-lg border-b border-border">
-       <div className="flex items-center justify-between px-4 h-14">
-         <div className="flex items-center gap-3">
-            <button
+  return (
+    <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
+      <div className="flex items-center justify-between px-4 h-14">
+        <div className="flex items-center gap-3">
+           <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 touch-target"
+              aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
               onClick={onMenuClick}
-              className="p-2 hover:bg-muted rounded-lg touch-target"
-              aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
-            </button>
+            </Button>
 
-             <div className="flex items-center gap-2">
-               <img src="/favicon.png" alt="MED-THERM Logo" className="h-6 w-6" />
-               <span className="font-semibold text-foreground font-heading">
-                 {currentPage?.label || 'MED-THERM'}
-               </span>
-             </div>
+            <Link to="/" className="flex items-center gap-2 group">
+              <img src="/favicon.png" alt="MED-THERM Logo" className="h-6 w-6" />
+              <span className="font-semibold text-foreground font-heading group-hover:underline underline-offset-4">
+                MED-THERM
+              </span>
+            </Link>
+
+            {!isHome && currentPage && (
+              <>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-foreground">
+                  {currentPage.label}
+                </span>
+              </>
+            )}
+        </div>
+
+         <div className="flex items-center gap-2">
+           <Button
+             variant="ghost"
+             size="icon"
+             className="h-9 w-9 touch-target"
+             aria-label="Toggle theme"
+             onClick={toggleTheme}
+           >
+             {theme === 'dark' ? (
+               <Sun className="h-5 w-5" />
+             ) : (
+               <Moon className="h-5 w-5" />
+             )}
+           </Button>
+           <Button
+             variant="ghost"
+             size="icon"
+             className="h-9 w-9 touch-target"
+             aria-label="Notifications"
+           >
+             <AlertTriangle className="h-5 w-5 text-muted-foreground" />
+           </Button>
          </div>
+      </div>
+    </header>
+  )
+}
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 touch-target"
-              aria-label="Toggle theme"
-              onClick={toggleTheme}
-            >
-              {theme === 'dark' ? (
-                <Sun className="h-5 w-5" />
-              ) : (
-                <Moon className="h-5 w-5" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 touch-target"
-              aria-label="Notifications"
-            >
-              <AlertTriangle className="h-5 w-5 text-muted-foreground" />
-            </Button>
-          </div>
-       </div>
-     </header>
-   )
- }
+interface LayoutProps {
+  children: React.ReactNode
+}
 
- interface LayoutProps {
-   children: React.ReactNode
- }
+export function Layout({ children }: LayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
- export function Layout({ children }: LayoutProps) {
-   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
 
-   return (
-     <div className="min-h-screen bg-background flex">
-      <Sidebar />
-       <MobileNav open={mobileNavOpen} setOpen={setMobileNavOpen} />
+      <div className="flex flex-1">
+       <Sidebar isOpen={sidebarOpen} />
 
-       <div className="flex-1 flex flex-col min-w-0">
-         <Header onMenuClick={() => setMobileNavOpen(true)} />
-         <DataModeBanner />
-         <main className="flex-1 p-4 sm:p-6 lg:p-8">
-           {children}
-         </main>
+         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+           <ActiveTransportBanner />
+           <DataModeBanner />
+           <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+             {children}
+           </main>
 
-         <footer className="border-t border-border bg-card p-4 text-center">
-           <p className="text-xs text-muted-foreground">
-             MED-THERM Compliance Engine v0.1.0 • Built for regulatory compliance
-           </p>
-         </footer>
-       </div>
-     </div>
-   )
- }
+           <footer className="border-t border-border bg-card p-4 text-center flex-shrink-0">
+             <p className="text-xs text-muted-foreground">
+               MED-THERM Compliance Engine v0.1.0 • Built for regulatory compliance
+             </p>
+           </footer>
+         </div>
+      </div>
+    </div>
+  )
+}
 
 export default Layout

@@ -8,6 +8,34 @@ History of all significant changes in the project.
 
 ### Added
 
+- **Persistent Live Transport System**
+  - Live transport monitoring runs in background when navigating between pages
+  - Persistent context provider (`LiveTransportContext`) that maintains state across navigation
+  - Active transport banner: appears on all pages when transport is running, redirects back to `/live`
+  - Sidebar navigation indicator: pulse badge with alert counts
+  - Transport persists until manually stopped or log replay completes
+
+- **Mobile Responsive UI Overhaul**
+  - Dashboard tabs: scrollable horizontal layout with stacked icons/text (iOS/Android native style)
+  - History page: card-based layout for mobile, table view for desktop
+  - Filter components for violations/rules: responsive widths, 1-column on mobile
+  - All touch targets ≥44x44px per accessibility requirements
+  - Fixed sidebar toggle button: hover state properly centered, same sizing as other header buttons
+  - Tables retain `overflow-x-auto` for wide data on small screens
+
+- **Complete UI/UX Refresh per ui-ux-pro-max guidelines**
+  - Dark/light mode contrast fixes (all text passes WCAG 4.5:1)
+  - shadcn/ui components used exclusively for consistency (raw HTML elements replaced)
+  - Native browser `confirm()` replaced with shadcn Dialog modals for all delete actions
+  - Skeleton loading states for data fetching pages
+  - Consistent icon sizing and hover states across all pages
+
+- **History Page Redesign**
+  - Uses shadcn `Table` components instead of raw HTML
+  - Skeleton loading during history refresh
+  - Mobile card view + desktop table view
+  - All dialogs for confirmations, no native modals
+
 - **Multi-Modal Analysis Pipeline**
   - Unified analysis of log files (.txt), chart images (.png, .jpg), and constraints documents (.md)
   - Multi-modal ingestion: merge, dedupe, and track sources across file types

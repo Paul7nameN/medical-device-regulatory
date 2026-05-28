@@ -11,7 +11,7 @@ import {
 import { Upload, FileText, Image, File, X, CheckCircle2, AlertCircle, Loader2, FileCode, FileCheck, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { UploadFileItem, ExtractedRule } from '@/lib/api'
-import { logsApi, aiApi, reportsApi, multimodalApi, type RulesetMetaInput } from '@/lib/api'
+import { multimodalApi, type RulesetMetaInput } from '@/lib/api'
 import { useAnalysis } from '@/lib/context/AnalysisContext'
 
 export type FileIntent = 'log_file' | 'constraints_document' | 'image' | 'unknown'
@@ -91,7 +91,7 @@ interface UploadFileItemWithIntent extends UploadFileItem {
 }
 
 export function FileUploadZone({
-  onUploadComplete,
+  onUploadComplete: _onUploadComplete,
   maxFiles = 10,
   maxSize = 50 * 1024 * 1024,
   className,
@@ -102,14 +102,14 @@ export function FileUploadZone({
 
    const [extractedRules, setExtractedRules] = useState<ExtractedRule[] | null>(null)
    const [rulesetMeta, setRulesetMeta] = useState<RulesetMetaInput | null>(null)
-   const [isExtractingRules, setIsExtractingRules] = useState(false)
+   const [isExtractingRules] = useState(false)
    const [mergeWithDefaultRules, setMergeWithDefaultRules] = useState(false)
 
    const extractedRulesRef = useRef<ExtractedRule[] | null>(null)
    const rulesetMetaRef = useRef<RulesetMetaInput | null>(null)
    const mergeWithDefaultRulesRef = useRef(false)
 
-   const { refreshHistory, setIsAnalyzing, setError, switchAnalysis, startBatchAnalysis, batchStatus, isAnalyzing } = useAnalysis()
+   const { setIsAnalyzing, setError, startBatchAnalysis, batchStatus, isAnalyzing } = useAnalysis()
 
   const generateId = () => Math.random().toString(36).substring(2, 9)
 
@@ -202,177 +202,13 @@ export function FileUploadZone({
     }
   }, [addFiles])
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      addFiles(e.target.files)
-    }
-  }, [addFiles])
+   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+     if (e.target.files) {
+       addFiles(e.target.files)
+     }
+   }, [addFiles])
 
-  const uploadFile = async (fileItem: UploadFileItemWithIntent): Promise<UploadFileItemWithIntent> => {
-    console.log('📤 [uploadFile] Starting upload for:', fileItem.name, 'intent:', fileItem.intent)
-
-    if (fileItem.status === 'success' || fileItem.status === 'uploading') {
-      console.log('📤 [uploadFile] Already done or uploading, skipping')
-      return fileItem
-    }
-
-    setFiles(prev => prev.map(f =>
-      f.id === fileItem.id ? { ...f, status: 'uploading' as const, progress: 0 } : f
-    ))
-
-    setIsAnalyzing(true)
-
-    try {
-      const isImage = fileItem.type.startsWith('image/') || 
-        fileItem.name.endsWith('.png') || 
-        fileItem.name.endsWith('.jpg') || 
-        fileItem.name.endsWith('.jpeg')
-      
-      const isConstraintsDoc = fileItem.intent === 'constraints_document'
-      const isLogFile = fileItem.intent === 'log_file' || 
-        ((fileItem.name.endsWith('.txt') || fileItem.name.endsWith('.md')) && !isConstraintsDoc)
-
-      let result: unknown
-      let shouldRefreshHistory = true
-      
-       if (isImage) {
-         const currentExtractedRules = extractedRulesRef.current
-         const currentRulesetMeta = rulesetMetaRef.current
-         
-         console.log('📤 [uploadFile] Processing as image', currentExtractedRules ? 'with custom rules' : 'with default rules')
-         const formData = new FormData()
-         formData.append('file', fileItem.file)
-         
-         if (currentExtractedRules && currentExtractedRules.length > 0) {
-           formData.append('extracted_rules', JSON.stringify(currentExtractedRules))
-           console.log('📤 [uploadFile] Added extracted_rules to formData:', currentExtractedRules.length, 'rules')
-           
-           if (currentRulesetMeta) {
-             formData.append('ruleset_meta', JSON.stringify(currentRulesetMeta))
-           }
-         }
-         
-         result = await aiApi.analyzeChart(formData)
-       } else if (isConstraintsDoc) {
-        console.log('📤 [uploadFile] Processing as constraints document - extracting rules')
-        setIsExtractingRules(true)
-        
-        const text = fileItem.textPreview || (await fileItem.file.text())
-        
-        const extractResult = await aiApi.extractRules({
-          document_text: text,
-          filename: fileItem.name,
-        })
-        
-        console.log('📤 [uploadFile] Rule extraction result:', extractResult)
-        
-         if (extractResult.success && extractResult.rules && extractResult.rules.length > 0) {
-           setExtractedRules(extractResult.rules)
-           extractedRulesRef.current = extractResult.rules
-           const newMeta = {
-             ...extractResult.meta,
-             source: 'extracted',
-             filename: fileItem.name,
-             rule_count: extractResult.rules.length,
-           }
-           setRulesetMeta(newMeta)
-           rulesetMetaRef.current = newMeta
-           console.log(`✅ [uploadFile] Extracted ${extractResult.rules.length} rules from ${fileItem.name}`)
-           result = extractResult
-         } else {
-           const errorMsg = extractResult.error || 'Failed to extract rules from document'
-           throw new Error(errorMsg)
-         }
-         
-         shouldRefreshHistory = false
-       } else if (isLogFile) {
-         const currentExtractedRules = extractedRulesRef.current
-         const currentRulesetMeta = rulesetMetaRef.current
-         const currentMerge = mergeWithDefaultRulesRef.current
-         
-         console.log('📤 [uploadFile] Processing as log file', currentExtractedRules ? 'with custom rules' : 'with default rules')
-         
-         const text = await fileItem.file.text()
-         const rawLogs = text.split(/\r?\n/).filter(line => line.trim().length > 0)
-
-         const requestParams: {
-           raw_logs: string[]
-           device_id: string
-           extracted_rules?: ExtractedRule[]
-           ruleset_meta?: RulesetMetaInput
-           merge_with_default_rules?: boolean
-         } = {
-           raw_logs: rawLogs,
-           device_id: fileItem.name.replace(/\.[^/.]+$/, ''),
-         }
-
-         if (currentExtractedRules && currentExtractedRules.length > 0) {
-           requestParams.extracted_rules = currentExtractedRules
-           requestParams.ruleset_meta = currentRulesetMeta || undefined
-           requestParams.merge_with_default_rules = currentMerge
-           console.log('📤 [uploadFile] Using extracted rules for validation:', currentExtractedRules.length, 'rules')
-         }
-
-         result = await reportsApi.generateFromLogs(requestParams)
-      } else {
-        console.log('📤 [uploadFile] Processing as generic file')
-        const formData = new FormData()
-        formData.append('file', fileItem.file)
-        result = await logsApi.ingest(formData)
-      }
-
-      setFiles(prev => prev.map(f =>
-        f.id === fileItem.id ? {
-          ...f,
-          status: 'success' as const,
-          progress: 100,
-        } : f
-      ))
-
-      onUploadComplete?.(result)
-
-      if (shouldRefreshHistory) {
-        console.log('🔄 [uploadFile] Refreshing history...')
-        try {
-          await refreshHistory()
-          console.log('🔄 [uploadFile] Auto-selecting latest analysis...')
-          switchAnalysis(0)
-        } catch (refreshError) {
-          console.warn('⚠️ [uploadFile] refreshHistory failed:', refreshError)
-        }
-      }
-
-      return { ...fileItem, status: 'success', progress: 100 }
-      
-    } catch (error) {
-      console.error('❌ [uploadFile] CAUGHT ERROR:', error)
-      console.error('❌ [uploadFile] Error type:', typeof error)
-      console.error('❌ [uploadFile] Error keys:', error instanceof Object ? Object.keys(error) : 'N/A')
-      
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : (typeof error === 'object' && error !== null && 'message' in error)
-          ? String((error as { message: string }).message)
-          : 'Upload failed'
-      
-      console.error('❌ [uploadFile] Final error message:', errorMessage)
-      
-      setError(errorMessage)
-      setFiles(prev => prev.map(f =>
-        f.id === fileItem.id ? {
-          ...f,
-          status: 'error' as const,
-          error: errorMessage,
-        } : f
-      ))
-      return { ...fileItem, status: 'error', error: errorMessage }
-    } finally {
-      console.log('🔚 [uploadFile] Finally: setIsAnalyzing(false)')
-      setIsAnalyzing(false)
-    }
-  }
-
-   const uploadAllFilesBatch = async () => {
+    const uploadAllFilesBatch = async () => {
      console.log('📤 [uploadAllFilesBatch] Starting batch mode analysis')
 
      const logFiles: File[] = []
@@ -424,14 +260,7 @@ export function FileUploadZone({
      }
    }
 
-  const uploadAllFilesIndividually = async () => {
-    const pendingFiles = files.filter((f) => f.status === 'pending' || f.status === 'error')
-    for (const file of pendingFiles) {
-      await uploadFile(file)
-    }
-  }
-
-   const getFileIcon = (type: string, name: string, intent?: FileIntent) => {
+    const getFileIcon = (type: string, name: string, intent?: FileIntent) => {
     if (intent === 'constraints_document') {
       return <FileCode className="h-5 w-5 text-purple-600 dark:text-purple-400" />
     }
@@ -725,34 +554,24 @@ export function FileUploadZone({
                      Clear all
                    </button>
                    
-                   <Button
-                     onClick={uploadAllFilesBatch}
-                     disabled={isAnalyzing}
-                     className="touch-target"
-                   >
-                     {isAnalyzing ? (
-                       <>
-                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                         Analyzing...
-                       </>
-                     ) : (
-                       <>
-                         <Layers className="h-4 w-4 mr-2" />
-                         Analyze {pendingCount} file{pendingCount !== 1 ? 's' : ''}
-                       </>
-                     )}
-                   </Button>
-
-                   <Button
-                     onClick={uploadAllFilesIndividually}
-                     disabled={isAnalyzing}
-                     variant="outline"
-                     className="touch-target ml-2"
-                   >
-                     <Upload className="h-4 w-4 mr-2" />
-                     Upload individually
-                   </Button>
-                 </div>
+                    <Button
+                      onClick={uploadAllFilesBatch}
+                      disabled={isAnalyzing}
+                      className="touch-target"
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Layers className="h-4 w-4 mr-2" />
+                          Analyze {pendingCount} file{pendingCount !== 1 ? 's' : ''}
+                        </>
+                      )}
+                    </Button>
+                  </div>
               )}
           </div>
         )}

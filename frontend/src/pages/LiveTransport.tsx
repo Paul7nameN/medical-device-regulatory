@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRef } from 'react'
 import {
   Card,
   CardContent,
@@ -12,325 +11,60 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Input,
 } from '@/components/ui'
 import { Play, Square, Radio, Thermometer, Upload, FileText, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { reportsApi } from '@/lib/api'
-import { useAnalysis } from '@/lib/context/AnalysisContext'
 import { TemperatureChart } from '@/components/TemperatureChart'
-import type { TemperatureDataPoint } from '@/components/TemperatureChart'
 import { TelemetryLineChart } from '@/components/TelemetryLineChart'
 import { TELEMETRY_METRIC_BY_ID } from '@/lib/telemetry/metrics'
 import { REGULATORY_CONSTANTS } from '@/lib/constants'
 import { LiveAlertFeed } from '@/components/LiveTransport/LiveAlertFeed'
-import {
-  appendPoint,
-  createLiveTick,
-  LIVE_MAX_POINTS,
-  LIVE_TICK_INTERVAL_MS,
-  metricSeriesFromTicks,
-} from '@/lib/live/simulator'
-import { parseLogLinesToReplayBatches, readLogFile } from '@/lib/live/logReplay'
-import { buildLiveTransportAnalysis } from '@/lib/live/buildReport'
-import { createMonitorState, evaluateLiveTick } from '@/lib/live/monitor'
-import type {
-  LiveAlert,
-  LiveScenario,
-  LiveSourceMode,
-  LiveSpeedMultiplier,
-  LiveTelemetryTick,
-} from '@/lib/live/types'
-import { LIVE_SPEED_OPTIONS } from '@/lib/live/types'
-import type { TelemetryDataPoint } from '@/lib/telemetry/metrics'
-
-const SCENARIO_LABELS: Record<LiveScenario, string> = {
-  stable: 'Stable transport (demo)',
-  excursion: 'Door + temperature excursion',
-  stress: 'Sensor + power stress',
-}
+import { LIVE_SPEED_OPTIONS, type LiveScenario, type LiveSourceMode, type LiveSpeedMultiplier } from '@/lib/live/types'
+import { useLiveTransport } from '@/lib/context/LiveTransportContext'
 
 export function LiveTransportPage() {
-  const navigate = useNavigate()
-  const { addAnalysis, refreshHistory, switchAnalysis, setIsAnalyzing } = useAnalysis()
+  const {
+    isRunning,
+    scenario,
+    sourceMode,
+    speed,
+    deviceId,
+    logFileName,
+    logLineCount,
+    totalReplayBatches,
+    ticks,
+    alerts,
+    tickIndex,
+    startedAt,
+    elapsedSec,
+    isFinalizingReport,
+    canStart,
+    canResumeLog,
+    scenarioLabels,
+    temperatureData,
+    fanData,
+    humidityData,
+    setScenario,
+    setSourceMode,
+    setSpeed,
+    setDeviceId,
+    startTransport,
+    stopTransport,
+    handleLogUpload,
+    clearLogFile,
+    formatElapsed,
+  } = useLiveTransport()
 
-  const [isRunning, setIsRunning] = useState(false)
-  const [isFinalizingReport, setIsFinalizingReport] = useState(false)
-  const [scenario, setScenario] = useState<LiveScenario>('excursion')
-  const [sourceMode, setSourceMode] = useState<LiveSourceMode>('simulated')
-  const [speed, setSpeed] = useState<LiveSpeedMultiplier>(1)
-  const [deviceId, setDeviceId] = useState('MED-UNIT-DEMO-01')
-  const [logFileName, setLogFileName] = useState<string | null>(null)
-  const [logLineCount, setLogLineCount] = useState(0)
-  const [totalReplayBatches, setTotalReplayBatches] = useState(0)
-  const [ticks, setTicks] = useState<LiveTelemetryTick[]>([])
-  const [alerts, setAlerts] = useState<LiveAlert[]>([])
-  const [tickIndex, setTickIndex] = useState(0)
-  const [startedAt, setStartedAt] = useState<number | null>(null)
-  const [elapsedSec, setElapsedSec] = useState(0)
-
-  const monitorRef = useRef(createMonitorState())
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const simIndexRef = useRef(0)
-  const logIndexRef = useRef(0)
-  const logBatchesRef = useRef<LiveTelemetryTick[][]>([])
-  const logLinesRef = useRef<string[]>([])
-  const alertsRef = useRef<LiveAlert[]>([])
-  const scenarioRef = useRef(scenario)
-  const sourceModeRef = useRef(sourceMode)
-  const speedRef = useRef(speed)
-  const sessionStartRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  scenarioRef.current = scenario
-  sourceModeRef.current = sourceMode
-  speedRef.current = speed
-
-  useEffect(() => {
-    alertsRef.current = alerts
-  }, [alerts])
-
-  const finalizeLogTransport = useCallback(async () => {
-    const lines = logLinesRef.current
-    if (lines.length === 0 || isFinalizingReport) return
-
-    setIsFinalizingReport(true)
-    setIsAnalyzing(true)
-
-    if (elapsedRef.current) {
-      clearInterval(elapsedRef.current)
-      elapsedRef.current = null
-    }
-
-    try {
-      await reportsApi.generateFromLogs({
-        raw_logs: lines,
-        device_id: deviceId,
-      })
-      await refreshHistory()
-      switchAnalysis(0)
-    } catch (error) {
-      console.warn('Live transport: backend report failed, using local summary', error)
-      addAnalysis(buildLiveTransportAnalysis(lines, alertsRef.current, deviceId))
-    } finally {
-      setIsAnalyzing(false)
-      setIsFinalizingReport(false)
-      navigate('/')
-    }
-  }, [
-    addAnalysis,
-    deviceId,
-    isFinalizingReport,
-    navigate,
-    refreshHistory,
-    setIsAnalyzing,
-    switchAnalysis,
-  ])
-
-  const finalizeLogTransportRef = useRef(finalizeLogTransport)
-  finalizeLogTransportRef.current = finalizeLogTransport
-
-  const temperatureData: TemperatureDataPoint[] = useMemo(() => {
-    return metricSeriesFromTicks(ticks, 'temperature').map((p) => ({
-      timestamp: p.timestamp,
-      time: p.time,
-      sensorA: p.value,
-      source: 'log_file' as const,
-    }))
-  }, [ticks])
-
-  const fanData: TelemetryDataPoint[] = useMemo(
-    () => metricSeriesFromTicks(ticks, 'fan_speed'),
-    [ticks]
-  )
-  const humidityData: TelemetryDataPoint[] = useMemo(
-    () => metricSeriesFromTicks(ticks, 'humidity'),
-    [ticks]
-  )
-
-  const processBatch = useCallback((batch: LiveTelemetryTick[]) => {
-    const now = Date.now()
-    const newAlerts: LiveAlert[] = []
-
-    setTicks((prev) => {
-      let combined = prev
-      for (const tick of batch) {
-        combined = appendPoint(combined, tick, LIVE_MAX_POINTS * 4)
-        newAlerts.push(...evaluateLiveTick(tick, monitorRef.current, now))
-      }
-      return combined
-    })
-
-    if (newAlerts.length > 0) {
-      setAlerts((prev) => [...newAlerts, ...prev].slice(0, 50))
-    }
-  }, [])
-
-  const runOneTick = useCallback(() => {
-    if (sourceModeRef.current === 'log_file') {
-      const batches = logBatchesRef.current
-      const idx = logIndexRef.current
-      if (idx >= batches.length) {
-        return false
-      }
-      processBatch(batches[idx])
-      logIndexRef.current = idx + 1
-      setTickIndex(logIndexRef.current)
-      return logIndexRef.current < batches.length
-    }
-
-    const index = simIndexRef.current
-    const batch = createLiveTick(
-      scenarioRef.current,
-      index,
-      sessionStartRef.current,
-      1000 + index
-    )
-    processBatch(batch)
-    simIndexRef.current = index + 1
-    setTickIndex(simIndexRef.current)
-    return true
-  }, [processBatch])
-
-  const clearTickInterval = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-  }, [])
-
-  const scheduleTickLoop = useCallback(() => {
-    clearTickInterval()
-    const ms = LIVE_TICK_INTERVAL_MS / speedRef.current
-    intervalRef.current = setInterval(() => {
-      const hasMore = runOneTick()
-      if (sourceModeRef.current === 'log_file' && !hasMore) {
-        clearTickInterval()
-        setIsRunning(false)
-        void finalizeLogTransportRef.current()
-      }
-    }, ms)
-  }, [clearTickInterval, runOneTick])
-
-  const stopTransport = useCallback(() => {
-    setIsRunning(false)
-    clearTickInterval()
-    if (elapsedRef.current) {
-      clearInterval(elapsedRef.current)
-      elapsedRef.current = null
-    }
-  }, [clearTickInterval])
-
-  const startTransport = useCallback(
-    (forceRestart = false) => {
-      stopTransport()
-
-      const isLogResume =
-        !forceRestart &&
-        sourceMode === 'log_file' &&
-        logIndexRef.current > 0 &&
-        logIndexRef.current < logBatchesRef.current.length
-
-      if (!isLogResume) {
-        setTicks([])
-        setAlerts([])
-        setTickIndex(0)
-        setElapsedSec(0)
-        simIndexRef.current = 0
-        logIndexRef.current = 0
-        monitorRef.current = createMonitorState()
-      } else {
-        setTickIndex(logIndexRef.current)
-      }
-
-      if (sourceMode === 'log_file' && logBatchesRef.current.length === 0) {
-        return
-      }
-
-      const sessionElapsedBase = isLogResume ? elapsedSec : 0
-      const start = Date.now()
-      sessionStartRef.current = start
-      setStartedAt(start)
-      setIsRunning(true)
-
-      elapsedRef.current = setInterval(() => {
-        setElapsedSec(sessionElapsedBase + Math.floor((Date.now() - start) / 1000))
-      }, 1000)
-
-      if (!isLogResume) {
-        runOneTick()
-      }
-    },
-    [elapsedSec, sourceMode, stopTransport, runOneTick]
-  )
-
-  useEffect(() => {
-    if (!isRunning) return
-    scheduleTickLoop()
-  }, [speed, isRunning, scheduleTickLoop])
-
-  useEffect(() => {
-    return () => stopTransport()
-  }, [stopTransport])
-
-  const handleLogUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-
-    try {
-      const { lines, name } = await readLogFile(file)
-      logLinesRef.current = lines
-      logBatchesRef.current = parseLogLinesToReplayBatches(lines)
-      setTotalReplayBatches(logBatchesRef.current.length)
-      setLogFileName(name)
-      setLogLineCount(lines.length)
-      setSourceMode('log_file')
-      setTicks([])
-      setAlerts([])
-      setTickIndex(0)
-      logIndexRef.current = 0
-      monitorRef.current = createMonitorState()
-    } catch {
-      setLogFileName(null)
-      setLogLineCount(0)
-      logBatchesRef.current = []
-      logLinesRef.current = []
-      setTotalReplayBatches(0)
+    if (file) {
+      void handleLogUpload(file)
     }
-
     e.target.value = ''
-  }, [])
-
-  const clearLogFile = useCallback(() => {
-    if (isRunning) return
-    logBatchesRef.current = []
-    logLinesRef.current = []
-    setTotalReplayBatches(0)
-    setTicks([])
-    setAlerts([])
-    setTickIndex(0)
-    logIndexRef.current = 0
-    monitorRef.current = createMonitorState()
-    setLogFileName(null)
-    setLogLineCount(0)
-    setSourceMode('simulated')
-  }, [isRunning])
-
-  const formatElapsed = (sec: number) => {
-    const m = Math.floor(sec / 60)
-    const s = sec % 60
-    return `${m}:${s.toString().padStart(2, '0')}`
   }
-
-  const canStart =
-    sourceMode === 'simulated' || (sourceMode === 'log_file' && logBatchesRef.current.length > 0)
-
-  const canResumeLog =
-    !isRunning &&
-    sourceMode === 'log_file' &&
-    tickIndex > 0 &&
-    totalReplayBatches > 0 &&
-    tickIndex < totalReplayBatches
 
   return (
     <div className="space-y-6 relative">
@@ -385,9 +119,11 @@ export function LiveTransportPage() {
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-end">
             <div className="space-y-1 min-w-[200px]">
-              <label className="text-xs text-muted-foreground">Device ID</label>
-              <input
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              <label htmlFor="live-page-device-id" className="text-xs text-muted-foreground">
+                Device ID
+              </label>
+              <Input
+                id="live-page-device-id"
                 value={deviceId}
                 onChange={(e) => setDeviceId(e.target.value)}
                 disabled={isRunning}
@@ -399,10 +135,7 @@ export function LiveTransportPage() {
               <label className="text-xs text-muted-foreground">Data source</label>
               <Select
                 value={sourceMode}
-                onValueChange={(v) => {
-                  if (isRunning) return
-                  setSourceMode(v as LiveSourceMode)
-                }}
+                onValueChange={(v) => setSourceMode(v as LiveSourceMode)}
                 disabled={isRunning}
               >
                 <SelectTrigger>
@@ -429,9 +162,9 @@ export function LiveTransportPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(SCENARIO_LABELS) as LiveScenario[]).map((key) => (
+                    {(Object.keys(scenarioLabels) as LiveScenario[]).map((key) => (
                       <SelectItem key={key} value={key}>
-                        {SCENARIO_LABELS[key]}
+                        {scenarioLabels[key]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -449,7 +182,7 @@ export function LiveTransportPage() {
                     size="sm"
                     variant={speed === mult ? 'default' : 'outline'}
                     className="min-w-[3rem]"
-                    onClick={() => setSpeed(mult)}
+                    onClick={() => setSpeed(mult as LiveSpeedMultiplier)}
                   >
                     ×{mult}
                   </Button>
@@ -464,7 +197,7 @@ export function LiveTransportPage() {
               type="file"
               accept=".txt,.log"
               className="hidden"
-              onChange={handleLogUpload}
+              onChange={onFileChange}
             />
             <Button
               type="button"
@@ -498,29 +231,46 @@ export function LiveTransportPage() {
               </div>
             )}
 
-            <div className="flex gap-2 sm:ml-auto">
+            <div className="sm:ml-auto">
               {!isRunning ? (
-                <>
-                  <Button
-                    onClick={() => startTransport(false)}
-                    disabled={!canStart}
-                    className="touch-target"
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    {canResumeLog ? 'Continue transport' : 'Start transport'}
-                  </Button>
-                  {canResumeLog && (
+                canResumeLog ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => startTransport(false)}
+                      disabled={!canStart}
+                      size="default"
+                      className="touch-target h-10 items-center"
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Continue
+                    </Button>
                     <Button
                       onClick={() => startTransport(true)}
                       variant="outline"
-                      className="touch-target"
+                      size="default"
+                      className="touch-target h-10 items-center"
                     >
                       Restart
                     </Button>
-                  )}
-                </>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => startTransport(false)}
+                    disabled={!canStart}
+                    size="default"
+                    className="touch-target h-10 items-center min-w-44"
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Start transport
+                  </Button>
+                )
               ) : (
-                <Button onClick={stopTransport} variant="destructive" className="touch-target">
+                <Button
+                  onClick={stopTransport}
+                  variant="destructive"
+                  size="default"
+                  className="touch-target h-10 items-center min-w-44"
+                >
                   <Square className="h-4 w-4 mr-2" />
                   Stop
                 </Button>
@@ -551,7 +301,7 @@ export function LiveTransportPage() {
                   sourceMode === 'log_file' ? 'bg-blue-100 dark:bg-blue-950/40' : 'bg-muted'
                 )}
               >
-                {sourceMode === 'log_file' ? `Replay: ${logFileName ?? 'log'}` : `Scenario: ${SCENARIO_LABELS[scenario]}`}
+                {sourceMode === 'log_file' ? `Replay: ${logFileName ?? 'log'}` : `Scenario: ${scenarioLabels[scenario]}`}
               </span>
             </div>
             <TemperatureChart

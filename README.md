@@ -25,6 +25,12 @@ docker-compose up --build
 
 ---
 
+## 📸 Screenshots
+
+| Dashboard Overview | Live Transport Monitoring | Violations & Filters |
+|---|---|---|
+| ![Main Analytics Dashboard](./docs/assets/screenshots/dashboard-overview.png) | ![Live Transport with real-time charts](./docs/assets/screenshots/live-transport.png) | ![All violations with search/filters](./docs/assets/screenshots/violations.png) |
+
 ## Access
 
 - **Frontend**: http://localhost:5173

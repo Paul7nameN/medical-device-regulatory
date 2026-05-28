@@ -1,6 +1,6 @@
 # Dashboard Overview
 
-The dashboard has 5 main tabs:
+The dashboard has 5 main tabs, plus the Live Transport page:
 
 ---
 
@@ -14,13 +14,14 @@ General analysis summary:
 
 ---
 
-## 2. Temperature
+## 2. Graphs
 
-Temperature chart:
-- **Sensor A** - Primary sensor temperature
-- **Sensor B** - Secondary sensor temperature (if exists)
+Telemetry charts:
+- **Temperature** - Primary and secondary sensor temperature
 - **Safe Range** - Green band indicates safe range (2-8°C)
 - **Excursions** - In red/orange when temperature is outside range
+- **Fan Speed** - Ventilation fan RPM
+- **Humidity** - Relative humidity level
 
 ### Info Cards:
 - **Sensor A (Avg)** - Average temperature of primary sensor
@@ -47,7 +48,16 @@ Table with all violations:
 
 ---
 
-## 4. Rules
+## 4. Timeline
+
+Unified chronological view of all events:
+- Source badges: Logs (blue), Chart (green), Correlated (orange)
+- Shows all violations in time order
+- Filter by source, zoom, pan, hover for details
+
+---
+
+## 5. Rules
 
 Reference to all MED-THERM-2026 rules:
 - Category
@@ -57,7 +67,7 @@ Reference to all MED-THERM-2026 rules:
 
 ---
 
-## 5. History
+## 6. History
 
 Analysis history:
 - Analysis number
@@ -72,3 +82,15 @@ You can:
 - **Load** - Load a previous analysis
 - **Remove** - Delete an analysis from history
 - **Clear All** - Delete all analyses (with confirmation)
+
+---
+
+## Live Transport
+
+Seperate page for real-time monitoring:
+- ✅ Runs in background when navigating away
+- Persistent banner indicator on all pages
+- Supports demo simulations and log file replay
+- Real-time rule evaluation with live alerts
+
+See [Live Transport Monitoring](live-monitoring.md) for complete details.

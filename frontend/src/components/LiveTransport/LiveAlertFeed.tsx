@@ -16,6 +16,22 @@ const severityVariant: Record<LiveAlert['severity'], string> = {
   info: 'border-border bg-muted/40',
 }
 
+const severityBadgeVariant: Record<LiveAlert['severity'], string> = {
+  critical: 'bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-300',
+  high: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
+  medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
+  low: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  info: 'bg-muted text-muted-foreground',
+}
+
+const severityLabel: Record<LiveAlert['severity'], string> = {
+  critical: 'Critical',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+  info: 'Info',
+}
+
 export function LiveAlertFeed({ alerts, className }: LiveAlertFeedProps) {
   return (
     <Card className={cn('h-full flex flex-col', className)}>
@@ -33,47 +49,64 @@ export function LiveAlertFeed({ alerts, className }: LiveAlertFeedProps) {
           Rule checks run on each telemetry tick. Advice is indicative for operators.
         </p>
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto max-h-[520px] space-y-3">
-        {alerts.length === 0 ? (
-          <div className="text-center py-10 text-muted-foreground">
-            <Info className="h-10 w-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">No violations yet. Monitoring in progress…</p>
-          </div>
-        ) : (
-          alerts.map((alert) => (
-            <div
-              key={alert.id}
-              className={cn('rounded-lg border p-3', severityVariant[alert.severity])}
-            >
-              <div className="flex items-start gap-2">
-                <AlertTriangle
-                  className={cn(
-                    'h-4 w-4 mt-0.5 flex-shrink-0',
-                    alert.severity === 'critical' || alert.severity === 'high'
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-yellow-600 dark:text-yellow-400'
-                  )}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="text-sm font-medium text-foreground">{alert.title}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {alert.ruleId}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{alert.message}</p>
-                  <p className="text-sm mt-2 font-medium text-foreground">
-                    Recommended: {alert.advice}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(alert.timestamp).toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
+       <CardContent
+          className="flex-1 overflow-y-auto max-h-[520px] space-y-3"
+          aria-live="polite"
+          role="region"
+          aria-label="Live alerts feed"
+        >
+          {alerts.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <Info className="h-10 w-10 mx-auto mb-3 opacity-50" aria-hidden="true" />
+              <p className="text-sm">No violations yet. Monitoring in progress…</p>
             </div>
-          ))
-        )}
-      </CardContent>
+          ) : (
+            <ul role="list" className="space-y-3">
+              {alerts.map((alert) => (
+                <li
+                  key={alert.id}
+                  className={cn('rounded-lg border p-3', severityVariant[alert.severity])}
+                  role="listitem"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle
+                      className={cn(
+                        'h-4 w-4 mt-0.5 flex-shrink-0',
+                        alert.severity === 'critical' || alert.severity === 'high'
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-yellow-600 dark:text-yellow-400'
+                      )}
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-foreground">{alert.title}</span>
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                            severityBadgeVariant[alert.severity]
+                          )}
+                        >
+                          {severityLabel[alert.severity]}
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          {alert.ruleId}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{alert.message}</p>
+                      <p className="text-sm mt-2 font-medium text-foreground">
+                        Recommended: {alert.advice}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(alert.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
     </Card>
   )
 }

@@ -126,7 +126,6 @@ export function ViolationsTable({
     { id: 'detected_at', desc: true },
   ])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialFilters)
-  const [selectedViolation, setSelectedViolation] = useState<DetectedViolation | null>(null)
 
   const hasDataSourceField = useMemo(
     () => data.some((d) => d.data_source !== undefined),
@@ -284,18 +283,28 @@ export function ViolationsTable({
       })
     }
 
-     const actionsColumn: ColumnDef<DetectedViolation>[] = [
+      const actionsColumn: ColumnDef<DetectedViolation>[] = [
       {
         id: 'actions',
         header: 'Actions',
-       cell: ({ row }) => (
+       cell: ({ row }) => {
+         const v = row.original
+         const getSeverityColor = () => {
+           switch (v.severity) {
+             case 'critical': return 'text-red-500'
+             case 'high': return 'text-orange-500'
+             case 'medium': return 'text-yellow-500'
+             default: return 'text-green-500'
+           }
+         }
+
+         return (
         <Dialog>
           <DialogTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
               className="h-8 px-2"
-              onClick={() => setSelectedViolation(row.original)}
             >
               <Eye className="h-4 w-4" />
               <span className="sr-only">View details</span>
@@ -303,146 +312,122 @@ export function ViolationsTable({
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-500" />
-                Violation Details
+              <DialogTitle className="flex items-center gap-3">
+                <AlertTriangle className={cn('h-5 w-5', getSeverityColor())} />
+                <span className="font-mono text-lg">{v.reg_code}</span>
+                <SeverityBadge severity={v.severity} />
               </DialogTitle>
-              <DialogDescription>
-                Complete details for this detected regulatory violation
+              <DialogDescription className="text-sm mt-2">
+                {v.description || 'No description available'}
               </DialogDescription>
             </DialogHeader>
-            {selectedViolation && (
-              <div className="space-y-4">
-                 <div className="grid grid-cols-2 gap-4">
+             <div className="max-h-[65vh] overflow-y-auto space-y-4 pr-1">
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                     Status
+                   </label>
+                   <p className="mt-1">{v.status}</p>
+                 </div>
+                 <div>
+                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                     Risk Score
+                   </label>
+                   <p className="mt-1 font-medium">
+                     {v.risk_score !== undefined
+                       ? `${v.risk_score}/100`
+                       : 'N/A'}
+                   </p>
+                 </div>
+                 {v.data_source && (
                    <div>
                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                       REG Code
-                     </label>
-                     <p className="font-mono text-lg text-primary">
-                       {selectedViolation.reg_code}
-                     </p>
-                   </div>
-                   <div>
-                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                       Severity
+                       Data Source
                      </label>
                      <div className="mt-1">
-                       <SeverityBadge severity={selectedViolation.severity} />
-                     </div>
-                   </div>
-                   <div>
-                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                       Status
-                     </label>
-                     <p className="mt-1">{selectedViolation.status}</p>
-                   </div>
-                   <div>
-                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                       Risk Score
-                     </label>
-                     <p className="mt-1 font-medium">
-                       {selectedViolation.risk_score !== undefined
-                         ? `${selectedViolation.risk_score}/100`
-                         : 'N/A'}
-                     </p>
-                   </div>
-                   {selectedViolation.data_source && (
-                     <div>
-                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                         Data Source
-                       </label>
-                       <div className="mt-1">
-                         <DataSourceBadge source={selectedViolation.data_source} />
-                       </div>
-                     </div>
-                   )}
-                   {selectedViolation.confidence !== undefined && (
-                     <div>
-                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                         Confidence
-                       </label>
-                       <div className="mt-1">
-                         <ConfidenceBadge 
-                           confidence={selectedViolation.confidence}
-                           breakdown={selectedViolation.confidence_breakdown}
-                         />
-                       </div>
-                     </div>
-                   )}
-                 </div>
-                 {selectedViolation.confidence_breakdown && (
-                   <div className="bg-muted/40 rounded-lg p-3">
-                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
-                       Confidence Breakdown
-                     </label>
-                     <div className="grid grid-cols-3 gap-3 text-center">
-                       {selectedViolation.confidence_breakdown.log !== undefined && (
-                         <div>
-                           <p className="text-xs text-muted-foreground">Logs</p>
-                           <p className="text-sm font-medium">
-                             {Math.round(selectedViolation.confidence_breakdown.log * 100)}%
-                           </p>
-                         </div>
-                       )}
-                       {selectedViolation.confidence_breakdown.chart !== undefined && (
-                         <div>
-                           <p className="text-xs text-muted-foreground">Chart</p>
-                           <p className="text-sm font-medium">
-                             {Math.round(selectedViolation.confidence_breakdown.chart * 100)}%
-                           </p>
-                         </div>
-                       )}
-                       {selectedViolation.confidence_breakdown.alignment !== undefined && (
-                         <div>
-                           <p className="text-xs text-muted-foreground">Alignment</p>
-                           <p className="text-sm font-medium">
-                             {Math.round(selectedViolation.confidence_breakdown.alignment * 100)}%
-                           </p>
-                         </div>
-                       )}
+                       <DataSourceBadge source={v.data_source} />
                      </div>
                    </div>
                  )}
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Description
-                  </label>
-                  <p className="mt-1 text-foreground">
-                    {selectedViolation.description || 'No description provided'}
-                  </p>
-                </div>
-                {selectedViolation.evidence && selectedViolation.evidence.length > 0 && (
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">
-                      Evidence ({selectedViolation.evidence.length} item{selectedViolation.evidence.length !== 1 ? 's' : ''})
-                    </label>
-                    <div className="space-y-2">
-                      {selectedViolation.evidence.map((ev, idx) => (
-                        <div key={idx} className="p-3 bg-muted/40 rounded-lg border border-border">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-foreground">
-                              Entry #{ev.entry_index}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(ev.timestamp).toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{ev.explanation}</p>
-                          <p className="text-xs text-muted-foreground mt-1 font-mono">
-                            {ev.log_type}: {ev.raw_value}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-           </DialogContent>
-         </Dialog>
-       ),
-     },
-    ]
+                 {v.confidence !== undefined && (
+                   <div>
+                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                       Confidence
+                     </label>
+                     <div className="mt-1">
+                       <ConfidenceBadge 
+                         confidence={v.confidence}
+                         breakdown={v.confidence_breakdown}
+                       />
+                     </div>
+                   </div>
+                 )}
+               </div>
+               {v.confidence_breakdown && (
+                 <div className="bg-muted/40 rounded-lg p-3">
+                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
+                     Confidence Breakdown
+                   </label>
+                   <div className="grid grid-cols-3 gap-3 text-center">
+                     {v.confidence_breakdown.log !== undefined && (
+                       <div>
+                         <p className="text-xs text-muted-foreground">Logs</p>
+                         <p className="text-sm font-medium">
+                           {Math.round(v.confidence_breakdown.log * 100)}%
+                         </p>
+                       </div>
+                     )}
+                     {v.confidence_breakdown.chart !== undefined && (
+                       <div>
+                         <p className="text-xs text-muted-foreground">Chart</p>
+                         <p className="text-sm font-medium">
+                           {Math.round(v.confidence_breakdown.chart * 100)}%
+                         </p>
+                       </div>
+                     )}
+                     {v.confidence_breakdown.alignment !== undefined && (
+                       <div>
+                         <p className="text-xs text-muted-foreground">Alignment</p>
+                         <p className="text-sm font-medium">
+                           {Math.round(v.confidence_breakdown.alignment * 100)}%
+                         </p>
+                       </div>
+                     )}
+                   </div>
+                 </div>
+               )}
+               {v.evidence && v.evidence.length > 0 && (
+                 <div>
+                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">
+                     Evidence ({v.evidence.length} item{v.evidence.length !== 1 ? 's' : ''})
+                   </label>
+                   <div className="space-y-2">
+                     {v.evidence.map((ev, idx) => (
+                       <div key={idx} className="p-3 bg-muted/40 rounded-lg border border-border">
+                         <div className="flex items-center justify-between mb-1">
+                           <span className="text-sm font-medium text-foreground">
+                             Entry #{ev.entry_index}
+                           </span>
+                           <span className="text-xs text-muted-foreground">
+                             {new Date(ev.timestamp).toLocaleString()}
+                           </span>
+                         </div>
+                         <p className="text-sm text-muted-foreground">{ev.explanation}</p>
+                         <p className="text-xs text-muted-foreground mt-1 font-mono">
+                           {ev.log_type}: {ev.raw_value}
+                         </p>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
+             </div>
+            </DialogContent>
+          </Dialog>
+        )
+       }
+      }
+     ]
 
     return [...baseColumns, ...dynamicColumns, ...actionsColumn]
   }, [hasDataSourceField, hasConfidenceField])

@@ -124,38 +124,76 @@ export function calculateComplianceScoreFromCounts(
   return calculateComplianceScore(passedCount, passedCount + failedCount)
 }
 
+export type ComplianceStatus = 'CONFORM' | 'CONFORM_WITH_RESERVE' | 'NON_CONFORM'
+
 export function calculateComplianceScoreFromSeverityCounts(
-  passedCount: number,
+  _passedCount: number,
   failedBySeverity: Pick<SeverityCounts, 'critical' | 'high' | 'medium' | 'low' | 'info'>
 ): number {
-  const failedCount =
-    failedBySeverity.critical +
-    failedBySeverity.high +
-    failedBySeverity.medium +
-    failedBySeverity.low +
-    failedBySeverity.info
+  if (failedBySeverity.critical > 0) {
+    return 0
+  }
 
-  const totalRules = passedCount + failedCount
-  if (totalRules === 0) return 100
-
-  // Weight penalties: critical reduces the score most.
-  const weights = {
-    critical: 1,
-    high: 0.7,
-    medium: 0.4,
-    low: 0.2,
-    info: 0.1,
+  const penalties = {
+    critical: 35,
+    high: 15,
+    medium: 5,
+    low: 1,
+    info: 0,
   } as const
 
-  const weightedPenalty =
-    failedBySeverity.critical * weights.critical +
-    failedBySeverity.high * weights.high +
-    failedBySeverity.medium * weights.medium +
-    failedBySeverity.low * weights.low +
-    failedBySeverity.info * weights.info
+  const totalPenalty =
+    failedBySeverity.critical * penalties.critical +
+    failedBySeverity.high * penalties.high +
+    failedBySeverity.medium * penalties.medium +
+    failedBySeverity.low * penalties.low +
+    failedBySeverity.info * penalties.info
 
-  const rawScore = 100 - (weightedPenalty / totalRules) * 100
+  const rawScore = 100 - totalPenalty
   return Math.max(0, Math.min(100, Math.round(rawScore)))
+}
+
+export function getComplianceStatus(score: number, hasCritical: boolean): ComplianceStatus {
+  if (hasCritical || score < 70) {
+    return 'NON_CONFORM'
+  }
+  if (score >= 85) {
+    return 'CONFORM'
+  }
+  return 'CONFORM_WITH_RESERVE'
+}
+
+export function getComplianceStatusLabel(status: ComplianceStatus): string {
+  switch (status) {
+    case 'CONFORM':
+      return 'CONFORM'
+    case 'CONFORM_WITH_RESERVE':
+      return 'CONFORM WITH RESERVE'
+    case 'NON_CONFORM':
+      return 'NON-CONFORM'
+  }
+}
+
+export function getComplianceStatusColor(status: ComplianceStatus): string {
+  switch (status) {
+    case 'CONFORM':
+      return 'text-green-600 dark:text-green-400'
+    case 'CONFORM_WITH_RESERVE':
+      return 'text-yellow-600 dark:text-yellow-400'
+    case 'NON_CONFORM':
+      return 'text-red-600 dark:text-red-400'
+  }
+}
+
+export function getComplianceStatusBg(status: ComplianceStatus): string {
+  switch (status) {
+    case 'CONFORM':
+      return 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900'
+    case 'CONFORM_WITH_RESERVE':
+      return 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-900'
+    case 'NON_CONFORM':
+      return 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900'
+  }
 }
 
 const TEMP_READING_PATTERN = /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+TEMP_READING\s+([\d.]+)C?$/i
